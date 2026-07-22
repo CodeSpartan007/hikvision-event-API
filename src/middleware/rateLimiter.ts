@@ -27,6 +27,17 @@ export const globalLimiter = rateLimit({
   },
 });
 
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many login attempts from this IP, please try again after 15 minutes.',
+  },
+});
+
 export const webhookLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 60,

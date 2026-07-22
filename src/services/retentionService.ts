@@ -49,6 +49,26 @@ export class RetentionService {
       throw error;
     }
   }
+
+  public async pruneFailedWebhookDeliveries(olderThanDays: number = 7): Promise<number> {
+    try {
+      const cutoffDate = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+      const result = await prisma.pendingWebhookDeliveries.deleteMany({
+        where: {
+          createdAt: { lt: cutoffDate },
+          attempts: { gte: 5 },
+        },
+      });
+
+      if (result.count > 0) {
+        logger.info({ prunedDeliveriesCount: result.count }, 'Pruned stale exhausted webhook delivery queue records');
+      }
+      return result.count;
+    } catch (error) {
+      logger.error(error, 'Error occurred during pending webhook delivery pruning');
+      return 0;
+    }
+  }
 }
 
 export const retentionService = new RetentionService();

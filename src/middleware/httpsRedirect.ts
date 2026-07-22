@@ -45,5 +45,5 @@ export function httpsRedirect(req: Request, res: Response, next: NextFunction): 
     return;
   }
 
-  res.redirect(301, `https://${hostHeader}${req.url}`);
+  res.redirect(307, `https://${hostHeader}${req.url}`);
 }

@@ -36,6 +36,25 @@ export function errorHandler(
     return;
   }
 
+  if (err && typeof err === 'object' && 'code' in err && typeof (err as any).code === 'string') {
+    const prismaErr = err as { code: string; message: string };
+    if (prismaErr.code === 'P2025') {
+      const isCursorErr = prismaErr.message?.includes('cursor');
+      res.status(isCursorErr ? 400 : 404).json({
+        status: 'error',
+        message: isCursorErr ? 'Invalid cursor provided for pagination' : 'Requested record was not found',
+      });
+      return;
+    }
+    if (prismaErr.code === 'P2002') {
+      res.status(409).json({
+        status: 'error',
+        message: 'A record with this key already exists',
+      });
+      return;
+    }
+  }
+
   const isProduction = env.NODE_ENV === 'production';
   res.status(500).json({
     status: 'error',

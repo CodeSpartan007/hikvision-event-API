@@ -1,8 +1,10 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'node:http';
 import jwt from 'jsonwebtoken';
+import crypto from 'node:crypto';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
+import { prisma } from '../database/prisma.js';
 
 let io: SocketIOServer | null = null;
 
@@ -14,7 +16,30 @@ export function initSocketServer(server: HttpServer): SocketIOServer {
     },
   });
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
+    let apiKey: string | undefined;
+
+    if (socket.handshake.auth && typeof socket.handshake.auth.apiKey === 'string') {
+      apiKey = socket.handshake.auth.apiKey;
+    } else if (socket.handshake.headers && (typeof socket.handshake.headers['x-api-key'] === 'string' || typeof socket.handshake.headers['X-API-Key'] === 'string')) {
+      apiKey = (socket.handshake.headers['x-api-key'] || socket.handshake.headers['X-API-Key']) as string;
+    } else if (socket.handshake.query && typeof socket.handshake.query.apiKey === 'string') {
+      apiKey = socket.handshake.query.apiKey as string;
+    }
+
+    if (apiKey) {
+      try {
+        const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
+        const apiKeyRecord = await prisma.apiKeys.findUnique({ where: { keyHash: hash } });
+        if (apiKeyRecord && apiKeyRecord.isActive && (!apiKeyRecord.expiresAt || apiKeyRecord.expiresAt > new Date())) {
+          (socket as any).user = { clientName: apiKeyRecord.name, apiKeyId: apiKeyRecord.id, isApiKeyClient: true };
+          return next();
+        }
+      } catch (err) {
+        // Fall back to JWT validation
+      }
+    }
+
     let token: string | undefined;
 
     if (socket.handshake.auth) {
@@ -34,8 +59,8 @@ export function initSocketServer(server: HttpServer): SocketIOServer {
     }
 
     if (!token) {
-      logger.warn({ socketId: socket.id }, 'Socket.IO connection rejected: missing token');
-      return next(new Error('Unauthorized: Missing token'));
+      logger.warn({ socketId: socket.id }, 'Socket.IO connection rejected: missing token or API key');
+      return next(new Error('Unauthorized: Missing token or API key'));
     }
 
     if (token.startsWith('Bearer ')) {
@@ -54,6 +79,20 @@ export function initSocketServer(server: HttpServer): SocketIOServer {
 
   io.on('connection', (socket) => {
     logger.info({ socketId: socket.id }, 'Socket.IO client connected');
+
+    socket.on('subscribe', (room: unknown) => {
+      if (typeof room === 'string' && room.trim()) {
+        socket.join(room.trim());
+        logger.info({ socketId: socket.id, room: room.trim() }, 'Socket client subscribed to room');
+      }
+    });
+
+    socket.on('unsubscribe', (room: unknown) => {
+      if (typeof room === 'string' && room.trim()) {
+        socket.leave(room.trim());
+        logger.info({ socketId: socket.id, room: room.trim() }, 'Socket client unsubscribed from room');
+      }
+    });
 
     socket.on('disconnect', (reason) => {
       logger.info({ socketId: socket.id, reason }, 'Socket.IO client disconnected');

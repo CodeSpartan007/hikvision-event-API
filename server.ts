@@ -39,6 +39,33 @@ webhookDispatcherInterval = setInterval(async () => {
 
 webhookDispatcherInterval.unref();
 
+// Periodic Heartbeat Counter Pruning & Device Health Checkers
+let heartbeatPruneInterval: NodeJS.Timeout | null = null;
+let deviceHealthInterval: NodeJS.Timeout | null = null;
+
+const HEARTBEAT_PRUNE_INTERVAL_MS = 5 * 60 * 1000;
+const DEVICE_HEALTH_CHECK_INTERVAL_MS = 2 * 60 * 1000;
+
+heartbeatPruneInterval = setInterval(async () => {
+  try {
+    const { webhookService } = await import('./src/services/webhookService.js');
+    await webhookService.pruneHeartbeatCounters();
+  } catch (error) {
+    logger.error(error, 'Heartbeat counter pruning worker error');
+  }
+}, HEARTBEAT_PRUNE_INTERVAL_MS);
+heartbeatPruneInterval.unref();
+
+deviceHealthInterval = setInterval(async () => {
+  try {
+    const { deviceService } = await import('./src/services/deviceService.js');
+    await deviceService.checkStaleDevices(10);
+  } catch (error) {
+    logger.error(error, 'Device health check worker error');
+  }
+}, DEVICE_HEALTH_CHECK_INTERVAL_MS);
+deviceHealthInterval.unref();
+
 let retentionInterval: NodeJS.Timeout | null = null;
 
 if (env.RAW_PAYLOAD_RETENTION_DAYS !== undefined) {
@@ -79,6 +106,16 @@ const gracefulShutdown = async (signal: string) => {
   if (webhookDispatcherInterval) {
     clearInterval(webhookDispatcherInterval);
     logger.info('Background webhook dispatcher interval cleared');
+  }
+
+  if (heartbeatPruneInterval) {
+    clearInterval(heartbeatPruneInterval);
+    logger.info('Background heartbeat prune interval cleared');
+  }
+
+  if (deviceHealthInterval) {
+    clearInterval(deviceHealthInterval);
+    logger.info('Background device health interval cleared');
   }
 
   if (retentionInterval) {

@@ -13,6 +13,9 @@ model Devices {
   status          String    // "ONLINE" | "OFFLINE"
   firmwareVersion String
   lastEventAt     DateTime?
+
+  @@index([status])
+  @@index([lastEventAt])
 }
 
 model Events {
@@ -65,6 +68,8 @@ model WebhookSubscriptions {
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([isActive])
 }
 
 model PendingWebhookDeliveries {
@@ -76,4 +81,8 @@ model PendingWebhookDeliveries {
   maxAttempts   Int      @default(5)
   nextAttemptAt DateTime @default(now())
   createdAt     DateTime @default(now())
+
+  @@index([nextAttemptAt])
+  @@index([createdAt])
 }
+

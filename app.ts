@@ -7,7 +7,8 @@ import eventsRouter from './src/routes/events.js';
 import authRouter from './src/routes/auth.js';
 import webhookSubscriptionsRouter from './src/routes/webhookSubscriptions.js';
 import apiKeysRouter from './src/routes/apiKeys.js';
-import { authMiddleware } from './src/middleware/auth.js';
+import auditLogsRouter from './src/routes/auditLogs.js';
+import { flexibleAuthMiddleware } from './src/middleware/flexibleAuth.js';
 import { globalLimiter } from './src/middleware/rateLimiter.js';
 import { httpsRedirect } from './src/middleware/httpsRedirect.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
@@ -36,12 +37,13 @@ app.use(express.text({ type: ['*/xml', 'application/xml', 'text/xml'], limit: '1
 app.use(healthRouter);
 app.use(webhookRouter);
 app.use(authRouter);
+
+app.use('/api', flexibleAuthMiddleware);
 app.use(webhookSubscriptionsRouter);
 app.use(apiKeysRouter);
-
-app.use('/api', authMiddleware);
 app.use(devicesRouter);
 app.use(eventsRouter);
+app.use(auditLogsRouter);
 
 app.use(errorHandler);
 

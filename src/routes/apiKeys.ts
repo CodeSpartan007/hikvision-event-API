@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import { prisma } from '../database/prisma.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { adminOnlyMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
-router.post('/api/api-keys', authMiddleware, async (req, res) => {
+router.post('/api/api-keys', adminOnlyMiddleware, async (req, res) => {
   const { name, expiresAt } = req.body;
 
   if (!name || typeof name !== 'string') {
@@ -18,6 +18,10 @@ router.post('/api/api-keys', authMiddleware, async (req, res) => {
     parsedExpiresAt = new Date(expiresAt);
     if (isNaN(parsedExpiresAt.getTime())) {
       res.status(400).json({ error: 'Bad Request', message: 'Invalid expiresAt date format' });
+      return;
+    }
+    if (parsedExpiresAt <= new Date()) {
+      res.status(400).json({ error: 'Bad Request', message: 'expiresAt date must be in the future' });
       return;
     }
   }
@@ -47,7 +51,7 @@ router.post('/api/api-keys', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/api/api-keys', authMiddleware, async (req, res) => {
+router.get('/api/api-keys', async (req, res) => {
   try {
     const keys = await prisma.apiKeys.findMany({
       select: {
@@ -66,7 +70,89 @@ router.get('/api/api-keys', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/api/api-keys/:id', authMiddleware, async (req, res) => {
+router.get('/api/api-keys/:id', async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+  try {
+    const apiKeyRecord = await prisma.apiKeys.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    });
+
+    if (!apiKeyRecord) {
+      res.status(404).json({ error: 'Not Found', message: 'API Key not found' });
+      return;
+    }
+
+    res.status(200).json(apiKeyRecord);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to retrieve API Key' });
+  }
+});
+
+router.patch('/api/api-keys/:id', adminOnlyMiddleware, async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const { name, isActive, expiresAt } = req.body;
+
+  try {
+    const existing = await prisma.apiKeys.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ error: 'Not Found', message: 'API Key not found' });
+      return;
+    }
+
+    const updateData: any = {};
+
+    if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim()) {
+        res.status(400).json({ error: 'Bad Request', message: 'Name must be a non-empty string' });
+        return;
+      }
+      updateData.name = name.trim();
+    }
+
+    if (typeof isActive === 'boolean') {
+      updateData.isActive = isActive;
+    }
+
+    if (expiresAt !== undefined) {
+      if (expiresAt === null) {
+        updateData.expiresAt = null;
+      } else {
+        const parsed = new Date(expiresAt);
+        if (isNaN(parsed.getTime())) {
+          res.status(400).json({ error: 'Bad Request', message: 'Invalid expiresAt date format' });
+          return;
+        }
+        updateData.expiresAt = parsed;
+      }
+    }
+
+    const updated = await prisma.apiKeys.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    });
+
+    res.status(200).json(updated);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update API Key' });
+  }
+});
+
+router.delete('/api/api-keys/:id', adminOnlyMiddleware, async (req, res) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
   try {

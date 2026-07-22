@@ -7,7 +7,7 @@ import { parseDateTimeInTimezone } from '../utils/timeHandler.js';
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
-  parseTagValue: true,
+  parseTagValue: false,
   trimValues: true,
 });
 
@@ -47,15 +47,33 @@ function extractAlertObject(payload: unknown): any {
       return payload;
     }
 
-    for (const key of Object.keys(payload)) {
-      const value = (payload as any)[key];
-      if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (trimmed.startsWith('<EventNotificationAlert') || trimmed.startsWith('<') || trimmed.startsWith('{')) {
+    const itemsToInspect: unknown[] = [];
+    if (Array.isArray(payload)) {
+      itemsToInspect.push(...payload);
+    } else {
+      for (const key of Object.keys(payload)) {
+        itemsToInspect.push((payload as any)[key]);
+      }
+    }
+
+    for (const value of itemsToInspect) {
+      if (!value) continue;
+      if (typeof value === 'string' || Buffer.isBuffer(value)) {
+        const strVal = Buffer.isBuffer(value) ? value.toString('utf-8') : value;
+        const trimmed = strVal.trim();
+        if (trimmed.startsWith('<') || trimmed.startsWith('{') || trimmed.includes('<EventNotificationAlert')) {
           const parsed = extractAlertObject(trimmed);
           if (parsed) {
             return parsed;
           }
+        }
+      } else if (typeof value === 'object') {
+        if ('buffer' in value && Buffer.isBuffer((value as any).buffer)) {
+          const parsed = extractAlertObject((value as any).buffer);
+          if (parsed) return parsed;
+        } else {
+          const parsed = extractAlertObject(value);
+          if (parsed) return parsed;
         }
       }
     }
@@ -83,7 +101,19 @@ export function parseHikvisionEvent(payload: unknown): NormalizedEvent {
 
   const ipAddress = alert.ipAddress ? String(alert.ipAddress).trim() : '';
   const macAddress = alert.macAddress ? String(alert.macAddress).trim() : '';
-  const deviceId = macAddress || ipAddress || 'unknown-device';
+  const serialNo = (
+    alert.deviceSerialNo ||
+    alert.serialNo ||
+    alert.subSerialNum ||
+    alert.AccessControllerEvent?.serialNo
+  ) ? String(
+    alert.deviceSerialNo ||
+    alert.serialNo ||
+    alert.subSerialNum ||
+    alert.AccessControllerEvent?.serialNo
+  ).trim() : '';
+
+  const deviceId = macAddress || serialNo || ipAddress || 'unknown-device';
 
   const rawEventType = String(alert.eventType || '').trim();
   const rawEventDesc = String(alert.eventDescription || '').trim().toLowerCase();

@@ -6,6 +6,14 @@ export function broadcastNewEvent(event: any): void {
   try {
     const io = getIO();
     io.emit('new_event', event);
+
+    if (event.deviceId) {
+      io.to(`device:${event.deviceId}`).emit('new_event', event);
+    }
+    if (event.eventType) {
+      io.to(`event:${event.eventType}`).emit('new_event', event);
+    }
+
     logger.info({ eventId: event.id, eventType: event.eventType }, 'Socket.IO broadcast: new_event');
   } catch (err: any) {
     logger.warn(

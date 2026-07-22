@@ -49,8 +49,8 @@ export async function validateSafeWebhookUrl(urlStr: string): Promise<{ valid: b
     return { valid: false, reason: 'Invalid URL format' };
   }
 
-  const isProduction = env.NODE_ENV === 'production' && process.env.NODE_ENV !== 'test';
-  const isTest = env.NODE_ENV === 'test' || process.env.NODE_ENV !== 'test';
+  const isProduction = env.NODE_ENV === 'production' || process.env.NODE_ENV === 'production';
+  const isTest = env.NODE_ENV === 'test' || process.env.NODE_ENV === 'test';
 
   if (isProduction && parsedUrl.protocol !== 'https:') {
     return { valid: false, reason: 'Webhook URL must use HTTPS in production' };

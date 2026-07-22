@@ -66,9 +66,9 @@ export function parseDateTimeInTimezone(dateTimeStr: string, timeZone: string): 
   }
 }
 
-export function formatLocalISO(date: Date, timeZone: string = env.TIMEZONE || 'Africa/Nairobi'): string {
+export function formatLocalISO(date: Date, timeZone: string = env.TIMEZONE || 'UTC'): string {
   try {
-    const tz = (timeZone && timeZone !== 'UTC') ? timeZone : 'Africa/Nairobi';
+    const tz = timeZone || 'UTC';
     const formatter = new Intl.DateTimeFormat('en-CA', {
       timeZone: tz,
       year: 'numeric',

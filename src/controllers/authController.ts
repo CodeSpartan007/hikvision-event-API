@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
+import crypto from 'node:crypto';
 import { env } from '../config/env.js';
 
 const loginSchema = z.object({
@@ -13,7 +14,17 @@ export class AuthController {
     try {
       const { username, password } = loginSchema.parse(req.body);
 
-      if (username === 'admin' && password === env.ADMIN_PASSWORD) {
+      const targetUsername = 'admin';
+      const userBuffer = Buffer.from(username);
+      const targetUserBuffer = Buffer.from(targetUsername);
+      const userMatch = userBuffer.length === targetUserBuffer.length && crypto.timingSafeEqual(userBuffer, targetUserBuffer);
+
+      const adminPass = env.ADMIN_PASSWORD || '';
+      const passBuffer = Buffer.from(password);
+      const targetPassBuffer = Buffer.from(adminPass);
+      const passMatch = passBuffer.length === targetPassBuffer.length && crypto.timingSafeEqual(passBuffer, targetPassBuffer);
+
+      if (userMatch && passMatch) {
         const token = jwt.sign({ username }, env.JWT_SECRET!, { expiresIn: '24h' });
         res.json({ token });
         return;

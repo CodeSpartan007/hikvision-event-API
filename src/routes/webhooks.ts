@@ -20,6 +20,12 @@ router.post(
 
 router.post(
   '/api/webhooks/:source',
+  (req, res, next) => {
+    if (req.params.source === 'subscriptions') {
+      return next('route');
+    }
+    next();
+  },
   webhookLimiter,
   upload.any(),
   webhookController.receiveWebhook

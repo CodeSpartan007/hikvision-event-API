@@ -1,17 +1,77 @@
 import { Request, Response, NextFunction } from 'express';
 import { eventService } from '../services/eventService.js';
 
+const VALID_EVENT_TYPES = new Set([
+  'CHECK_IN',
+  'CHECK_OUT',
+  'DOOR_OPEN',
+  'DOOR_CLOSED',
+  'DOOR_FORCED',
+  'MOTION',
+  'CAMERA_OFFLINE',
+  'HEARTBEAT',
+  'UNKNOWN',
+]);
+
 export class EventController {
   public getEvents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const limit = req.query.limit ? Number(req.query.limit) : undefined;
-      const offset = req.query.offset ? Number(req.query.offset) : undefined;
+      let limit: number | undefined = undefined;
+      if (req.query.limit !== undefined) {
+        const parsed = Number(req.query.limit);
+        if (isNaN(parsed) || parsed < 1) {
+          res.status(400).json({ error: 'Bad Request', message: 'limit must be a positive number' });
+          return;
+        }
+        limit = parsed;
+      }
+
+      let offset: number | undefined = undefined;
+      if (req.query.offset !== undefined) {
+        const parsed = Number(req.query.offset);
+        if (isNaN(parsed) || parsed < 0) {
+          res.status(400).json({ error: 'Bad Request', message: 'offset must be a non-negative number' });
+          return;
+        }
+        offset = parsed;
+      }
+
       const cursor = req.query.cursor ? String(req.query.cursor) : undefined;
       const deviceId = req.query.deviceId ? String(req.query.deviceId) : undefined;
-      const eventType = req.query.eventType ? String(req.query.eventType) : undefined;
+
+      let eventType: string | undefined = undefined;
+      if (req.query.eventType !== undefined) {
+        const typeStr = String(req.query.eventType).toUpperCase();
+        if (!VALID_EVENT_TYPES.has(typeStr)) {
+          res.status(400).json({
+            error: 'Bad Request',
+            message: `Invalid eventType '${req.query.eventType}'. Valid event types are: ${Array.from(VALID_EVENT_TYPES).join(', ')}`,
+          });
+          return;
+        }
+        eventType = typeStr;
+      }
+
       const externalEmployeeId = req.query.externalEmployeeId ? String(req.query.externalEmployeeId) : undefined;
-      const startDate = req.query.startDate ? new Date(String(req.query.startDate)) : undefined;
-      const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : undefined;
+      let startDate: Date | undefined = undefined;
+      if (req.query.startDate) {
+        const parsed = new Date(String(req.query.startDate));
+        if (isNaN(parsed.getTime())) {
+          res.status(400).json({ error: 'Bad Request', message: 'Invalid startDate date format provided' });
+          return;
+        }
+        startDate = parsed;
+      }
+
+      let endDate: Date | undefined = undefined;
+      if (req.query.endDate) {
+        const parsed = new Date(String(req.query.endDate));
+        if (isNaN(parsed.getTime())) {
+          res.status(400).json({ error: 'Bad Request', message: 'Invalid endDate date format provided' });
+          return;
+        }
+        endDate = parsed;
+      }
 
       const result = await eventService.getEvents({
         limit,

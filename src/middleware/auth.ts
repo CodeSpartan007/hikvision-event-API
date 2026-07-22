@@ -26,3 +26,15 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired token' });
   }
 }
+
+export function adminOnlyMiddleware(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user || req.user.isApiKeyClient) {
+    res.status(403).json({
+      error: 'Forbidden',
+      message: 'Admin JWT session required for this operation (API keys cannot modify administrative resources)',
+    });
+    return;
+  }
+  next();
+}
+

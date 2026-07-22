@@ -16,9 +16,9 @@ export class WebhookDispatcher {
           isActive: true,
           OR: [
             { eventTypes: { has: event.eventType } },
-            { eventTypes: { has: '*' } }
-          ]
-        }
+            { eventTypes: { has: '*' } },
+          ],
+        },
       });
 
       if (subscriptions.length === 0) {
@@ -42,11 +42,11 @@ export class WebhookDispatcher {
           externalEmployeeId: event.externalEmployeeId,
           timestamp: event.timestamp,
           localTimestamp: formatLocalISO(new Date(event.timestamp)),
-        }
+        },
       };
 
       for (const subscription of subscriptions) {
-        await (prisma as any).pendingWebhookDeliveries.create({
+        await prisma.pendingWebhookDeliveries.create({
           data: {
             url: subscription.url,
             secret: subscription.secret,
@@ -54,7 +54,7 @@ export class WebhookDispatcher {
             attempts: 0,
             maxAttempts: 5,
             nextAttemptAt: new Date(Date.now() - 1000),
-          }
+          },
         });
       }
 
@@ -74,28 +74,36 @@ export class WebhookDispatcher {
     this.isProcessing = true;
 
     try {
+      const processedIds = new Set<string>();
       do {
         this.hasPendingWakeup = false;
 
-        let pendingDeliveries = await (prisma as any).pendingWebhookDeliveries.findMany({
+        let pendingDeliveries = await prisma.pendingWebhookDeliveries.findMany({
           where: {
-            nextAttemptAt: { lte: new Date() }
+            nextAttemptAt: { lte: new Date() },
+            id: { notIn: Array.from(processedIds) },
           },
           orderBy: { createdAt: 'asc' },
-          take: 50
+          take: 20,
         });
 
         while (pendingDeliveries.length > 0) {
           for (const delivery of pendingDeliveries) {
-            await this.deliverSingleWebhook(delivery);
+            processedIds.add(delivery.id);
           }
 
-          pendingDeliveries = await (prisma as any).pendingWebhookDeliveries.findMany({
+          // Concurrent batch delivery
+          await Promise.allSettled(
+            pendingDeliveries.map((delivery) => this.deliverSingleWebhook(delivery))
+          );
+
+          pendingDeliveries = await prisma.pendingWebhookDeliveries.findMany({
             where: {
-              nextAttemptAt: { lte: new Date() }
+              nextAttemptAt: { lte: new Date() },
+              id: { notIn: Array.from(processedIds) },
             },
             orderBy: { createdAt: 'asc' },
-            take: 50
+            take: 20,
           });
         }
       } while (this.hasPendingWakeup);
@@ -119,7 +127,9 @@ export class WebhookDispatcher {
       ? delivery.payload
       : JSON.stringify(delivery.payload);
 
-    const signature = crypto.createHmac('sha256', delivery.secret).update(payloadStr).digest('hex');
+    const timestampHeader = new Date().toISOString();
+    const signaturePayload = `${timestampHeader}.${payloadStr}`;
+    const signature = crypto.createHmac('sha256', delivery.secret).update(signaturePayload).digest('hex');
     const currentAttempt = delivery.attempts + 1;
 
     const urlValidation = await validateSafeWebhookUrl(delivery.url);
@@ -128,7 +138,7 @@ export class WebhookDispatcher {
         { url: delivery.url, deliveryId: delivery.id, reason: urlValidation.reason },
         'Aborting webhook dispatch: destination URL failed dispatch-time safety validation'
       );
-      await (prisma as any).pendingWebhookDeliveries.delete({ where: { id: delivery.id } });
+      await prisma.pendingWebhookDeliveries.delete({ where: { id: delivery.id } });
       return;
     }
 
@@ -141,16 +151,17 @@ export class WebhookDispatcher {
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': 'HikvisionEventReceiver-Webhook-Dispatcher/1.0',
-          'X-Hub-Signature-256': `sha256=${signature}`
+          'X-Hub-Signature-256': `sha256=${signature}`,
+          'X-Hub-Timestamp': timestampHeader,
         },
         body: payloadStr,
-        signal: timeoutController.signal
+        signal: timeoutController.signal,
       });
 
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        await (prisma as any).pendingWebhookDeliveries.delete({ where: { id: delivery.id } });
+        await prisma.pendingWebhookDeliveries.delete({ where: { id: delivery.id } });
         logger.info({ url: delivery.url, deliveryId: delivery.id }, 'Webhook successfully delivered and removed from pending queue');
         return;
       }
@@ -165,7 +176,7 @@ export class WebhookDispatcher {
       );
 
       if (currentAttempt >= delivery.maxAttempts) {
-        await (prisma as any).pendingWebhookDeliveries.delete({ where: { id: delivery.id } });
+        await prisma.pendingWebhookDeliveries.delete({ where: { id: delivery.id } });
         logger.error(
           { url: delivery.url, deliveryId: delivery.id },
           `Webhook delivery exhausted all ${delivery.maxAttempts} attempts. Removed from database queue.`
@@ -174,12 +185,12 @@ export class WebhookDispatcher {
         const delayMs = Math.pow(2, currentAttempt) * 1000;
         const nextAttemptAt = new Date(Date.now() + delayMs);
 
-        await (prisma as any).pendingWebhookDeliveries.update({
+        await prisma.pendingWebhookDeliveries.update({
           where: { id: delivery.id },
           data: {
             attempts: currentAttempt,
-            nextAttemptAt: nextAttemptAt
-          }
+            nextAttemptAt: nextAttemptAt,
+          },
         });
       }
     }

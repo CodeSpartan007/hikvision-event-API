@@ -1,4 +1,5 @@
 import { prisma } from '../database/prisma.js';
+import { AppError } from '../utils/errors.js';
 
 export interface EventQueryOptions {
   limit?: number;
@@ -37,11 +38,18 @@ export class EventService {
 
     let findManyOptions: any = {
       where,
-      orderBy: { timestamp: 'desc' },
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
       take: limit + 1,
     };
 
     if (options.cursor) {
+      const existingCursor = await prisma.events.findUnique({
+        where: { id: options.cursor },
+        select: { id: true },
+      });
+      if (!existingCursor) {
+        throw new AppError(`Invalid cursor '${options.cursor}' provided for pagination`, 400);
+      }
       findManyOptions.cursor = { id: options.cursor };
       findManyOptions.skip = 1;
     } else if (offset > 0) {
@@ -59,7 +67,7 @@ export class EventService {
       pagination: {
         total,
         limit,
-        offset,
+        offset: options.cursor ? undefined : offset,
         hasMore,
         nextCursor,
       },
