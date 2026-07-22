@@ -7,7 +7,7 @@ For full architectural details, ingestion flows, and internal mechanics, see **[
 ## Key Features
 - **ISAPI Webhook Ingestion**: Receives XML, JSON, and multipart form-data streams pushed by Hikvision terminals & cameras.
 - **Normalized Event Contract**: Standardizes raw payloads into a clean vendor-neutral schema (`CHECK_IN`, `CHECK_OUT`, `DOOR_OPEN`, `MOTION`, `HEARTBEAT`, etc.).
-- **Event Deduplication**: Uses deterministic deduplication keys (`deviceId|eventType|timestamp|externalEmployeeId`) to prevent duplicate logs.
+- **Event Deduplication**: Uses deterministic deduplication keys (`deviceId|eventType|timestamp|employeeId`) to prevent duplicate logs.
 - **Clock Skew Management**: Normalizes or rejects out-of-bounds timestamps automatically.
 - **Device Online Tracking**: Updates terminal status & auto-registers new devices on arrival.
 - **Real-Time WebSocket**: Broadcasts events to client dashboards in real-time via Socket.IO.
@@ -31,8 +31,15 @@ npm run build
 npm run dev
 ```
 
-### Docker
+### Container Deployment (Podman / Docker)
+
+Note: This environment uses **Podman** (`podman` / `podman-compose`) as the primary container engine.
+
 ```bash
+# Using Podman (Recommended)
+podman-compose up -d --build
+
+# Or using Docker
 docker-compose up -d --build
 ```
 
@@ -45,7 +52,7 @@ docker-compose up -d --build
 - `POST /api/auth/login` — Authenticate admin
 
 ### Protected API (Requires Bearer JWT Token or API Key)
-- `GET /api/events` — Query paginated events (supports `deviceId`, `eventType`, `externalEmployeeId`, `startDate`, `endDate`, `cursor`, `limit`, `offset`)
+- `GET /api/events` — Query paginated events (supports `deviceId`, `eventType`, `employeeId`, `startDate`, `endDate`, `cursor`, `limit`, `offset`)
 - `GET /api/events/:id` — Get single event by ID
 - `GET /api/devices` — List all registered devices and online statuses
 - `GET /api/devices/:id` — Get device details

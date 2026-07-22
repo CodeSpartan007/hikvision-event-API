@@ -39,7 +39,6 @@ export class WebhookDispatcher {
           deviceType: event.deviceType,
           eventType: event.eventType,
           employeeId: event.employeeId,
-          externalEmployeeId: event.externalEmployeeId,
           timestamp: event.timestamp,
           localTimestamp: formatLocalISO(new Date(event.timestamp)),
         },

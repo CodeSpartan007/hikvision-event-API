@@ -12,6 +12,7 @@ import { flexibleAuthMiddleware } from './src/middleware/flexibleAuth.js';
 import { globalLimiter } from './src/middleware/rateLimiter.js';
 import { httpsRedirect } from './src/middleware/httpsRedirect.js';
 import { errorHandler } from './src/middleware/errorHandler.js';
+import { setupSwagger } from './src/swagger.js';
 
 const app = express();
 
@@ -26,13 +27,15 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(httpsRedirect);
 app.use(globalLimiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.text({ type: ['*/xml', 'application/xml', 'text/xml'], limit: '10mb' }));
+
+setupSwagger(app);
 
 app.use(healthRouter);
 app.use(webhookRouter);

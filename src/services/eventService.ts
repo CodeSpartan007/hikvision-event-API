@@ -7,7 +7,7 @@ export interface EventQueryOptions {
   cursor?: string;
   deviceId?: string;
   eventType?: string;
-  externalEmployeeId?: string;
+  employeeId?: string;
   startDate?: Date;
   endDate?: Date;
 }
@@ -25,8 +25,8 @@ export class EventService {
     if (options.eventType) {
       where.eventType = options.eventType;
     }
-    if (options.externalEmployeeId) {
-      where.externalEmployeeId = options.externalEmployeeId;
+    if (options.employeeId) {
+      where.employeeId = options.employeeId;
     }
     if (options.startDate || options.endDate) {
       where.timestamp = {};

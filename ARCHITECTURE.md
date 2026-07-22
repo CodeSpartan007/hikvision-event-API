@@ -58,7 +58,7 @@ Unlike a monolithic attendance system, this service focuses **100% on telemetry 
 
 ### 3. Event Deduplication Engine
 * Generates a deterministic deduplication key:
-  `deviceId | eventType | timestampISO | externalEmployeeId`
+  `deviceId | eventType | timestampISO | employeeId`
 * Enforced via a `@unique` constraint on `eventDedupKey` in PostgreSQL to safely ignore duplicate HTTP retries from hardware terminals.
 
 ### 4. Device Status Registry & Heartbeat Throttling
@@ -103,7 +103,7 @@ Unlike a monolithic attendance system, this service focuses **100% on telemetry 
 * **Query Parameters**:
   * `deviceId` (string) — Filter by device MAC/IP
   * `eventType` (string) — Filter by event type (`CHECK_IN`, `DOOR_OPEN`, etc.)
-  * `externalEmployeeId` (string) — Filter by employee number
+  * `employeeId` (string) — Filter by employee number
   * `startDate` & `endDate` (ISO strings) — Date range filter
   * `limit` (number, default: 50, max: 100)
   * `offset` (number, default: 0)
@@ -151,3 +151,11 @@ Unlike a monolithic attendance system, this service focuses **100% on telemetry 
 | `HeartbeatCounters` | Throttling counter for device heartbeat events. |
 | `ApiKeys` | Programmatic API authentication keys (SHA-256 hashed). |
 | `AuditLogs` | System logs for rejected events or security alerts. |
+
+---
+
+## Container Runtime
+
+- **Engine**: Podman (`podman` / `podman-compose`)
+- **Node Base Image**: `node:22-alpine`
+

@@ -12,6 +12,9 @@
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["src/**/*", "app.ts", "server.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*", "app.ts", "server.ts", "swagger.ts"],
+  "exclude": ["node_modules", "dist"],
+  "ts-node": {
+    "experimentalResolver": true
+  }
 }

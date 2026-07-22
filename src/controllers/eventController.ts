@@ -52,7 +52,7 @@ export class EventController {
         eventType = typeStr;
       }
 
-      const externalEmployeeId = req.query.externalEmployeeId ? String(req.query.externalEmployeeId) : undefined;
+      const employeeId = req.query.employeeId ? String(req.query.employeeId) : undefined;
       let startDate: Date | undefined = undefined;
       if (req.query.startDate) {
         const parsed = new Date(String(req.query.startDate));
@@ -79,7 +79,7 @@ export class EventController {
         cursor,
         deviceId,
         eventType,
-        externalEmployeeId,
+        employeeId,
         startDate,
         endDate,
       });

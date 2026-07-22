@@ -23,7 +23,7 @@ model Events {
   source             String   // "hikvision"
   deviceId           String
   eventType          String   // "CHECK_IN" | "CHECK_OUT" | "MOTION" | "DOOR_OPEN" | "DOOR_CLOSED" | "DOOR_FORCED" | "CAMERA_OFFLINE" | "HEARTBEAT" | "UNKNOWN"
-  externalEmployeeId String?
+  employeeId         String?
   eventDedupKey      String   @unique
   rawPayload         Json?
   auditMetadata      Json?
@@ -33,7 +33,7 @@ model Events {
   @@index([timestamp(sort: Desc)])
   @@index([deviceId, timestamp(sort: Desc)])
   @@index([eventType, timestamp(sort: Desc)])
-  @@index([externalEmployeeId])
+  @@index([employeeId])
   @@index([createdAt])
 }
 

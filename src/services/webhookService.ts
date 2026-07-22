@@ -118,12 +118,8 @@ export class WebhookService {
         }
 
         try {
-          if (!normalizedEvent.externalEmployeeId && normalizedEvent.employeeId) {
-            normalizedEvent.externalEmployeeId = normalizedEvent.employeeId;
-          }
-
-          const externalPersonId = normalizedEvent.externalEmployeeId || normalizedEvent.employeeId;
-          const externalIdentityDedupKey = normalizeExternalIdentityDedupKey(externalPersonId);
+          const employeeId = normalizedEvent.employeeId || null;
+          const externalIdentityDedupKey = normalizeExternalIdentityDedupKey(employeeId || undefined);
 
           let dbPayload: any = payload;
           if (Buffer.isBuffer(payload)) {
@@ -178,8 +174,6 @@ export class WebhookService {
             }
           }
 
-          const externalEmployeeId = normalizedEvent.externalEmployeeId || null;
-
           if (shouldStore) {
             try {
               dbEvent = await prisma.events.create({
@@ -188,7 +182,7 @@ export class WebhookService {
                   source: normalizedEvent.source,
                   deviceId: normalizedEvent.deviceId,
                   eventType: normalizedEvent.eventType,
-                  externalEmployeeId,
+                  employeeId,
                   eventDedupKey,
                   rawPayload: dbPayload,
                   auditMetadata: {

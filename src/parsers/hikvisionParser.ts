@@ -196,8 +196,16 @@ export function parseHikvisionEvent(payload: unknown): NormalizedEvent {
     const empNo = [
       accessEvent?.employeeNoString,
       accessEvent?.employeeNo,
+      accessEvent?.externalEmployeeId,
+      accessEvent?.externalemployeeid,
+      accessEvent?.employeeID,
+      accessEvent?.employeeId,
       alert?.employeeNoString,
       alert?.employeeNo,
+      alert?.externalEmployeeId,
+      alert?.externalemployeeid,
+      alert?.employeeID,
+      alert?.employeeId,
     ]
       .map((value) => String(value ?? '').trim())
       .find((value) => value !== '' && value !== '0');
@@ -259,7 +267,6 @@ export function parseHikvisionEvent(payload: unknown): NormalizedEvent {
     deviceType,
     eventType,
     employeeId,
-    externalEmployeeId: employeeId,
     timestamp: finalTimestamp,
     rawPayload: payload,
   };
