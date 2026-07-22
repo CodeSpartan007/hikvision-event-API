@@ -8,6 +8,7 @@ export interface EventQueryOptions {
   deviceId?: string;
   eventType?: string;
   employeeId?: string;
+  employeeName?: string;
   startDate?: Date;
   endDate?: Date;
 }
@@ -27,6 +28,9 @@ export class EventService {
     }
     if (options.employeeId) {
       where.employeeId = options.employeeId;
+    }
+    if (options.employeeName) {
+      where.employeeName = { contains: options.employeeName, mode: 'insensitive' };
     }
     if (options.startDate || options.endDate) {
       where.timestamp = {};

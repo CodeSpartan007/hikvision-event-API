@@ -121,6 +121,7 @@ export function parseHikvisionEvent(payload: unknown): NormalizedEvent {
   let eventType: NormalizedEvent['eventType'] = 'UNKNOWN';
   let deviceType: NormalizedEvent['deviceType'] = 'camera';
   let employeeId: string | undefined = undefined;
+  let employeeName: string | undefined = undefined;
 
   const accessEvent = alert.AccessControllerEvent;
 
@@ -212,6 +213,22 @@ export function parseHikvisionEvent(payload: unknown): NormalizedEvent {
     if (empNo) {
       employeeId = empNo;
     }
+
+    const empName = [
+      accessEvent?.name,
+      accessEvent?.employeeName,
+      accessEvent?.userName,
+      accessEvent?.staffName,
+      alert?.name,
+      alert?.employeeName,
+      alert?.userName,
+      alert?.staffName,
+    ]
+      .map((value) => String(value ?? '').trim())
+      .find((value) => value !== '');
+    if (empName) {
+      employeeName = empName;
+    }
   } else {
     const typeLower = rawEventType.toLowerCase();
 
@@ -267,6 +284,7 @@ export function parseHikvisionEvent(payload: unknown): NormalizedEvent {
     deviceType,
     eventType,
     employeeId,
+    employeeName,
     timestamp: finalTimestamp,
     rawPayload: payload,
   };

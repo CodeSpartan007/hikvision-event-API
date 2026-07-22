@@ -119,6 +119,7 @@ export class WebhookService {
 
         try {
           const employeeId = normalizedEvent.employeeId || null;
+          const employeeName = normalizedEvent.employeeName || null;
           const externalIdentityDedupKey = normalizeExternalIdentityDedupKey(employeeId || undefined);
 
           let dbPayload: any = payload;
@@ -183,6 +184,7 @@ export class WebhookService {
                   deviceId: normalizedEvent.deviceId,
                   eventType: normalizedEvent.eventType,
                   employeeId,
+                  employeeName,
                   eventDedupKey,
                   rawPayload: dbPayload,
                   auditMetadata: {

@@ -24,6 +24,7 @@ model Events {
   deviceId           String
   eventType          String   // "CHECK_IN" | "CHECK_OUT" | "MOTION" | "DOOR_OPEN" | "DOOR_CLOSED" | "DOOR_FORCED" | "CAMERA_OFFLINE" | "HEARTBEAT" | "UNKNOWN"
   employeeId         String?
+  employeeName       String?
   eventDedupKey      String   @unique
   rawPayload         Json?
   auditMetadata      Json?

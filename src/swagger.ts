@@ -157,6 +157,7 @@ Lightweight, high-performance microservice for receiving, parsing, storing, and 
             example: 'CHECK_IN',
           },
           employeeId: { type: 'string', nullable: true, example: 'EMP-8842' },
+          employeeName: { type: 'string', nullable: true, example: 'Cavin Juma' },
           eventDedupKey: { type: 'string', example: 'DEV-100293|CHECK_IN|1784713200000|EMP-8842' },
           rawPayload: { type: 'object', nullable: true },
           auditMetadata: { type: 'object', nullable: true },
@@ -498,6 +499,12 @@ Lightweight, high-performance microservice for receiving, parsing, storing, and 
             name: 'employeeId',
             in: 'query',
             description: 'Filter events by employee ID',
+            schema: { type: 'string' },
+          },
+          {
+            name: 'employeeName',
+            in: 'query',
+            description: 'Filter events by employee name',
             schema: { type: 'string' },
           },
           {
