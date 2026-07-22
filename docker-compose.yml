@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  event-receiver:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/hikvision_events?schema=public
+      - NODE_ENV=production
+      - JWT_SECRET=super-secret-production-key
+      - ADMIN_PASSWORD=admin123
+      - TIMEZONE=UTC
+    depends_on:
+      - db
+    restart: always
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hikvision_events
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  postgres_data:

@@ -1,0 +1,79 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Devices {
+  id              String    @id
+  name            String
+  type            String    // "camera" | "face_terminal" | "door_controller"
+  status          String    // "ONLINE" | "OFFLINE"
+  firmwareVersion String
+  lastEventAt     DateTime?
+}
+
+model Events {
+  id                 String   @id
+  source             String   // "hikvision"
+  deviceId           String
+  eventType          String   // "CHECK_IN" | "CHECK_OUT" | "MOTION" | "DOOR_OPEN" | "DOOR_CLOSED" | "DOOR_FORCED" | "CAMERA_OFFLINE" | "HEARTBEAT" | "UNKNOWN"
+  externalEmployeeId String?
+  eventDedupKey      String   @unique
+  rawPayload         Json?
+  auditMetadata      Json?
+  timestamp          DateTime
+  createdAt          DateTime @default(now())
+
+  @@index([timestamp(sort: Desc)])
+  @@index([deviceId, timestamp(sort: Desc)])
+  @@index([eventType, timestamp(sort: Desc)])
+  @@index([externalEmployeeId])
+  @@index([createdAt])
+}
+
+model HeartbeatCounters {
+  deviceId  String   @id
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model ApiKeys {
+  id        String    @id @default(uuid())
+  name      String
+  keyHash   String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+}
+
+model AuditLogs {
+  id        String   @id @default(uuid())
+  action    String
+  actorType String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model WebhookSubscriptions {
+  id         String   @id @default(uuid())
+  url        String
+  secret     String
+  eventTypes String[]
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model PendingWebhookDeliveries {
+  id            String   @id @default(uuid())
+  url           String
+  secret        String
+  payload       Json
+  attempts      Int      @default(0)
+  maxAttempts   Int      @default(5)
+  nextAttemptAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
