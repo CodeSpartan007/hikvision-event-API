@@ -14,6 +14,7 @@ export class WebhookDispatcher {
       const subscriptions = await prisma.webhookSubscriptions.findMany({
         where: {
           isActive: true,
+          tenantId: event.tenantId || null,
           OR: [
             { eventTypes: { has: event.eventType } },
             { eventTypes: { has: '*' } },
@@ -26,7 +27,7 @@ export class WebhookDispatcher {
       }
 
       logger.info(
-        { eventId: event.id, matchedSubscribers: subscriptions.length },
+        { eventId: event.id, tenantId: event.tenantId, matchedSubscribers: subscriptions.length },
         'Persisting durable webhook deliveries for subscribers'
       );
 
@@ -35,6 +36,7 @@ export class WebhookDispatcher {
         event: {
           id: event.id,
           source: event.source,
+          tenantId: event.tenantId,
           deviceId: event.deviceId,
           deviceType: event.deviceType,
           eventType: event.eventType,
@@ -47,6 +49,7 @@ export class WebhookDispatcher {
       for (const subscription of subscriptions) {
         await prisma.pendingWebhookDeliveries.create({
           data: {
+            tenantId: subscription.tenantId || event.tenantId || null,
             url: subscription.url,
             secret: subscription.secret,
             payload: payloadObj,
@@ -116,6 +119,7 @@ export class WebhookDispatcher {
 
   private async deliverSingleWebhook(delivery: {
     id: string;
+    tenantId?: string | null;
     url: string;
     secret: string;
     payload: any;

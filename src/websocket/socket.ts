@@ -32,7 +32,12 @@ export function initSocketServer(server: HttpServer): SocketIOServer {
         const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
         const apiKeyRecord = await prisma.apiKeys.findUnique({ where: { keyHash: hash } });
         if (apiKeyRecord && apiKeyRecord.isActive && (!apiKeyRecord.expiresAt || apiKeyRecord.expiresAt > new Date())) {
-          (socket as any).user = { clientName: apiKeyRecord.name, apiKeyId: apiKeyRecord.id, isApiKeyClient: true };
+          (socket as any).user = {
+            clientName: apiKeyRecord.name,
+            apiKeyId: apiKeyRecord.id,
+            tenantId: apiKeyRecord.tenantId,
+            isApiKeyClient: true,
+          };
           return next();
         }
       } catch (err) {
@@ -78,16 +83,47 @@ export function initSocketServer(server: HttpServer): SocketIOServer {
   });
 
   io.on('connection', (socket) => {
-    logger.info({ socketId: socket.id }, 'Socket.IO client connected');
+    const user = (socket as any).user;
+    logger.info({ socketId: socket.id, tenantId: user?.tenantId }, 'Socket.IO client connected');
+
+    if (user?.tenantId) {
+      socket.join(`tenant:${user.tenantId}`);
+      logger.info({ socketId: socket.id, tenantId: user.tenantId }, 'Socket client automatically joined tenant room');
+    }
 
     socket.on('subscribe', (room: unknown) => {
       if (typeof room === 'string' && room.trim()) {
-        socket.join(room.trim());
-        logger.info({ socketId: socket.id, room: room.trim() }, 'Socket client subscribed to room');
+        const targetRoom = room.trim();
+
+        if (user?.role === 'SUPER_ADMIN') {
+          socket.join(targetRoom);
+          logger.info({ socketId: socket.id, room: targetRoom }, 'Super Admin subscribed to room');
+          return;
+        }
+
+        if (targetRoom.startsWith('tenant:')) {
+          const parts = targetRoom.split(':');
+          const roomTenantId = parts[1];
+          if (user?.tenantId && user.tenantId === roomTenantId) {
+            socket.join(targetRoom);
+            logger.info({ socketId: socket.id, room: targetRoom, tenantId: user.tenantId }, 'Socket client subscribed to tenant room');
+          } else {
+            logger.warn({ socketId: socket.id, room: targetRoom, userTenantId: user?.tenantId }, 'Unauthorized tenant room subscription attempt rejected');
+            socket.emit('error', { message: 'Unauthorized: Cannot subscribe to foreign tenant room' });
+          }
+        } else {
+          if (user?.tenantId) {
+            logger.warn({ socketId: socket.id, room: targetRoom, userTenantId: user?.tenantId }, 'Non-super-admin attempted to subscribe to unscoped room');
+            socket.emit('error', { message: 'Unauthorized: Non-scoped room subscription not allowed' });
+          } else {
+            socket.join(targetRoom);
+            logger.info({ socketId: socket.id, room: targetRoom }, 'Socket client subscribed to room');
+          }
+        }
       }
     });
 
-    socket.on('unsubscribe', (room: unknown) => {
+  socket.on('unsubscribe', (room: unknown) => {
       if (typeof room === 'string' && room.trim()) {
         socket.leave(room.trim());
         logger.info({ socketId: socket.id, room: room.trim() }, 'Socket client unsubscribed from room');

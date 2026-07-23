@@ -29,22 +29,25 @@ export class WebhookService {
   public handleHikvisionWebhook(
     payload: any,
     contentType: string,
-    metadata: { ip: string; headers: Record<string, any> }
+    metadata: { ip: string; headers: Record<string, any> },
+    tenantId?: string
   ): void {
-    this.handleWebhook('hikvision', payload, contentType, metadata);
+    this.handleWebhook('hikvision', payload, contentType, metadata, tenantId);
   }
 
   public handleWebhook(
     source: string,
     payload: any,
     contentType: string,
-    metadata: { ip: string; headers: Record<string, any> }
+    metadata: { ip: string; headers: Record<string, any> },
+    tenantId?: string
   ): void {
     setImmediate(async () => {
       try {
         logger.info(
           {
             source,
+            tenantId,
             contentType,
             clientIp: metadata.ip,
             payloadSummary: {
@@ -80,6 +83,8 @@ export class WebhookService {
           };
         }
 
+        normalizedEvent.tenantId = tenantId;
+
         const rawHardwareTimestamp = normalizedEvent.timestamp;
         const skewResult = handleClockSkew(normalizedEvent.timestamp);
         if (skewResult.action === 'rejected') {
@@ -87,6 +92,7 @@ export class WebhookService {
             {
               eventId: normalizedEvent.id,
               deviceId: normalizedEvent.deviceId,
+              tenantId,
               skewSeconds: skewResult.skewSeconds,
             },
             'Event rejected due to clock skew bounds policy'
@@ -94,6 +100,7 @@ export class WebhookService {
           try {
             await prisma.auditLogs.create({
               data: {
+                tenantId: tenantId || null,
                 action: 'REJECT_EVENT_SKEW',
                 actorType: 'system',
                 details: `Rejected event ${normalizedEvent.id} from device ${normalizedEvent.deviceId} due to clock skew (${skewResult.skewSeconds}s)`,
@@ -118,6 +125,74 @@ export class WebhookService {
         }
 
         try {
+          // Zero-Touch Device Auto-Provisioning & Ownership Guard
+          if (normalizedEvent.deviceId !== 'unknown-device') {
+            try {
+              const deviceId = normalizedEvent.deviceId;
+              const existingDevice = await prisma.devices.findUnique({ where: { id: deviceId } });
+
+              if (existingDevice) {
+                // Conflict Guard: Device belongs to another tenant
+                if (existingDevice.tenantId && tenantId && existingDevice.tenantId !== tenantId) {
+                  logger.warn(
+                    { deviceId, existingTenantId: existingDevice.tenantId, requestedTenantId: tenantId },
+                    'Conflict Guard: Device ownership mismatch detected. Event rejected.'
+                  );
+                  await prisma.auditLogs.create({
+                    data: {
+                      tenantId: tenantId || null,
+                      action: 'UNAUTHORIZED_DEVICE_TENANT_MISMATCH',
+                      actorType: 'system',
+                      details: `Device ${deviceId} belongs to tenant ${existingDevice.tenantId}, but event ingestion was attempted by tenant ${tenantId}`,
+                    },
+                  });
+                  return; // Drop event processing to prevent cross-tenant device hijacking
+                }
+
+                let updatedDevice;
+                if (!existingDevice.tenantId && tenantId) {
+                  // Unassigned Device: Assign to tenant
+                  updatedDevice = await prisma.devices.update({
+                    where: { id: deviceId },
+                    data: {
+                      tenantId: tenantId,
+                      status: 'ONLINE',
+                      lastEventAt: new Date(),
+                    },
+                  });
+                } else {
+                  updatedDevice = await prisma.devices.update({
+                    where: { id: deviceId },
+                    data: {
+                      status: 'ONLINE',
+                      lastEventAt: new Date(),
+                    },
+                  });
+                }
+                broadcastDeviceUpdate(updatedDevice);
+              } else {
+                // New Device: Auto-register under tenant
+                const createdDevice = await prisma.devices.create({
+                  data: {
+                    id: deviceId,
+                    tenantId: tenantId || null,
+                    name: `Device ${deviceId}`,
+                    type: normalizedEvent.deviceType || 'camera',
+                    status: 'ONLINE',
+                    firmwareVersion: 'unknown',
+                    lastEventAt: new Date(),
+                  },
+                });
+                broadcastDeviceUpdate(createdDevice);
+              }
+            } catch (deviceErr) {
+              logger.error(
+                { error: deviceErr, deviceId: normalizedEvent.deviceId },
+                'Failed to update device registry status'
+              );
+            }
+          }
+
           const employeeId = normalizedEvent.employeeId || null;
           const employeeName = normalizedEvent.employeeName || null;
           const externalIdentityDedupKey = normalizeExternalIdentityDedupKey(employeeId || undefined);
@@ -148,6 +223,7 @@ export class WebhookService {
             try {
               await prisma.auditLogs.create({
                 data: {
+                  tenantId: tenantId || null,
                   action: 'UNPARSEABLE_WEBHOOK_PAYLOAD',
                   actorType: 'system',
                   details: `Received unparseable or unknown event payload from ${source} (IP: ${metadata.ip})`,
@@ -181,6 +257,7 @@ export class WebhookService {
                 data: {
                   id: normalizedEvent.id,
                   source: normalizedEvent.source,
+                  tenantId: tenantId || null,
                   deviceId: normalizedEvent.deviceId,
                   eventType: normalizedEvent.eventType,
                   employeeId,
@@ -207,7 +284,7 @@ export class WebhookService {
             }
 
             logger.info(
-              { eventId: normalizedEvent.id, eventType: normalizedEvent.eventType },
+              { eventId: normalizedEvent.id, eventType: normalizedEvent.eventType, tenantId },
               'Successfully persisted event to database'
             );
 
@@ -222,33 +299,6 @@ export class WebhookService {
               { eventId: normalizedEvent.id, deviceId: normalizedEvent.deviceId },
               'Skipping heartbeat persistence and broadcast (throttled)'
             );
-          }
-
-          if (normalizedEvent.deviceId !== 'unknown-device') {
-            try {
-              const deviceId = normalizedEvent.deviceId;
-              const updatedDevice = await prisma.devices.upsert({
-                where: { id: deviceId },
-                update: {
-                  lastEventAt: new Date(),
-                  status: 'ONLINE',
-                },
-                create: {
-                  id: deviceId,
-                  name: `Device ${deviceId}`,
-                  type: normalizedEvent.deviceType || 'camera',
-                  status: 'ONLINE',
-                  firmwareVersion: 'unknown',
-                  lastEventAt: new Date(),
-                },
-              });
-              broadcastDeviceUpdate(updatedDevice);
-            } catch (deviceErr) {
-              logger.error(
-                { error: deviceErr, deviceId: normalizedEvent.deviceId },
-                'Failed to update device registry status'
-              );
-            }
           }
 
           logger.info(`Processing of ${source} webhook completed successfully`);

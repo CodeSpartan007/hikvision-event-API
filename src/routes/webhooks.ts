@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { webhookController } from '../controllers/webhookController.js';
 import { webhookLimiter } from '../middleware/rateLimiter.js';
+import { tenantIngestionAuth } from '../middleware/tenantIngestionAuth.js';
 
 const router = Router();
 
@@ -14,6 +15,7 @@ const upload = multer({
 router.post(
   '/api/webhooks/hikvision',
   webhookLimiter,
+  tenantIngestionAuth,
   upload.any(),
   webhookController.receiveHikvisionWebhook
 );
@@ -27,6 +29,7 @@ router.post(
     next();
   },
   webhookLimiter,
+  tenantIngestionAuth,
   upload.any(),
   webhookController.receiveWebhook
 );

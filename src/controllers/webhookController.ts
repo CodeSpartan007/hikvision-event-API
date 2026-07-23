@@ -46,10 +46,18 @@ export class WebhookController {
         `Webhook receiver endpoint hit for source: ${source}`
       );
 
-      webhookService.handleWebhook(source, payload, contentType as string, {
-        ip: clientIp as string,
-        headers,
-      });
+      const tenantId = req.tenant?.id;
+
+      webhookService.handleWebhook(
+        source,
+        payload,
+        contentType as string,
+        {
+          ip: clientIp as string,
+          headers,
+        },
+        tenantId
+      );
 
       res.status(200).json({
         status: 'received',
