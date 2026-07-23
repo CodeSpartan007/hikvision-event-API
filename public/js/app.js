@@ -8,6 +8,7 @@ let state = {
   eventCount: 0,
   devices: [],
   events: [],
+  eventsMap: new Map(),
   apiKeys: [],
   webhooks: []
 };
@@ -236,6 +237,10 @@ function renderOverviewEventsTable(events) {
     return;
   }
 
+  events.forEach(e => {
+    if (e.id) state.eventsMap.set(String(e.id), e);
+  });
+
   tbody.innerHTML = events.slice(0, 5).map(e => `
     <tr>
       <td><small>${new Date(e.timestamp).toLocaleString()}</small></td>
@@ -243,12 +248,22 @@ function renderOverviewEventsTable(events) {
       <td><span class="type-tag">${escapeHtml(e.eventType)}</span></td>
       <td>${escapeHtml(e.employeeName || e.employeeId || 'N/A')}</td>
       <td>
-        <button class="btn btn-secondary btn-sm" onclick='viewEventJson(${JSON.stringify(e).replace(/'/g, "&apos;")})'>
+        <button class="btn btn-secondary btn-sm btn-inspect-event" data-event-id="${escapeHtml(e.id)}">
           <i class="fa-solid fa-code"></i> Inspect
         </button>
       </td>
     </tr>
   `).join('');
+
+  tbody.querySelectorAll('.btn-inspect-event').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const eventId = btn.getAttribute('data-event-id');
+      const eventObj = state.eventsMap.get(eventId);
+      if (eventObj) {
+        viewEventJson(eventObj);
+      }
+    });
+  });
 }
 
 // Devices Management
@@ -286,15 +301,34 @@ function renderDevicesTable(devices) {
       <td><small>${escapeHtml(d.firmwareVersion || 'N/A')}</small></td>
       <td><small>${d.lastEventAt ? new Date(d.lastEventAt).toLocaleString() : 'Never'}</small></td>
       <td>
-        <button class="btn btn-secondary btn-sm" onclick="openEditDeviceModal('${escapeHtml(d.id)}', '${escapeHtml(d.name)}', '${escapeHtml(d.type)}', '${escapeHtml(d.status)}')">
+        <button class="btn btn-secondary btn-sm btn-edit-device" data-device-id="${escapeHtml(d.id)}">
           <i class="fa-solid fa-pen"></i> Edit
         </button>
-        <button class="btn btn-danger btn-sm" onclick="handleDeleteDevice('${escapeHtml(d.id)}')">
+        <button class="btn btn-danger btn-sm btn-delete-device" data-device-id="${escapeHtml(d.id)}">
           <i class="fa-solid fa-trash"></i>
         </button>
       </td>
     </tr>
   `).join('');
+
+  tbody.querySelectorAll('.btn-edit-device').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-device-id');
+      const dev = state.devices.find(d => String(d.id) === String(id));
+      if (dev) {
+        openEditDeviceModal(dev.id, dev.name, dev.type, dev.status);
+      }
+    });
+  });
+
+  tbody.querySelectorAll('.btn-delete-device').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-device-id');
+      if (id) {
+        handleDeleteDevice(id);
+      }
+    });
+  });
 }
 
 async function handleCreateDevice(e) {
@@ -535,6 +569,9 @@ function appendTelemetryItem(event) {
 
   if (filter !== 'ALL' && event.eventType !== filter) return;
 
+  const eventId = String(event.id || `evt_${Date.now()}_${Math.random()}`);
+  state.eventsMap.set(eventId, event);
+
   // Clear placeholder if present
   if (container.children.length === 1 && container.children[0].innerText.includes('Listening')) {
     container.innerHTML = '';
@@ -560,10 +597,18 @@ function appendTelemetryItem(event) {
         </div>
       </div>
     </div>
-    <button class="btn btn-secondary btn-sm" onclick='viewEventJson(${JSON.stringify(event).replace(/'/g, "&apos;")})'>
+    <button class="btn btn-secondary btn-sm btn-inspect-event" data-event-id="${escapeHtml(eventId)}">
       <i class="fa-solid fa-code"></i> Inspect Raw
     </button>
   `;
+
+  const inspectBtn = div.querySelector('.btn-inspect-event');
+  if (inspectBtn) {
+    inspectBtn.addEventListener('click', () => {
+      const eventObj = state.eventsMap.get(eventId) || event;
+      viewEventJson(eventObj);
+    });
+  }
 
   container.insertBefore(div, container.firstChild);
   if (container.children.length > 50) {
@@ -595,7 +640,11 @@ function clearTelemetryFeed() {
 }
 
 // JSON Inspector Modal
-function viewEventJson(eventObj) {
+function viewEventJson(eventInput) {
+  let eventObj = eventInput;
+  if (typeof eventInput === 'string') {
+    eventObj = state.eventsMap.get(eventInput) || eventInput;
+  }
   document.getElementById('jsonViewerContent').textContent = JSON.stringify(eventObj, null, 2);
   openModal('jsonInspectorModal');
 }
