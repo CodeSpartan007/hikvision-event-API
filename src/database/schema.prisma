@@ -6,14 +6,34 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model Tenants {
+  id           String    @id @default(uuid())
+  name         String    // Organization or HRMS Client name
+  tenantKey    String    @unique // Ingestion secret e.g. "tn_live_a1b2c3d4..."
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  devices                  Devices[]
+  events                   Events[]
+  apiKeys                  ApiKeys[]
+  webhookSubscriptions     WebhookSubscriptions[]
+  pendingWebhookDeliveries PendingWebhookDeliveries[]
+  auditLogs                AuditLogs[]
+}
+
 model Devices {
   id              String    @id
+  tenantId        String?
+  tenant          Tenants?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name            String
   type            String    // "camera" | "face_terminal" | "door_controller"
   status          String    // "ONLINE" | "OFFLINE"
   firmwareVersion String
   lastEventAt     DateTime?
 
+  @@index([tenantId])
   @@index([status])
   @@index([lastEventAt])
 }
@@ -21,6 +41,8 @@ model Devices {
 model Events {
   id                 String   @id
   source             String   // "hikvision"
+  tenantId           String?
+  tenant             Tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deviceId           String
   eventType          String   // "CHECK_IN" | "CHECK_OUT" | "MOTION" | "DOOR_OPEN" | "DOOR_CLOSED" | "DOOR_FORCED" | "CAMERA_OFFLINE" | "HEARTBEAT" | "UNKNOWN"
   employeeId         String?
@@ -31,6 +53,8 @@ model Events {
   timestamp          DateTime
   createdAt          DateTime @default(now())
 
+  @@index([tenantId, timestamp(sort: Desc)])
+  @@index([tenantId, deviceId, timestamp(sort: Desc)])
   @@index([timestamp(sort: Desc)])
   @@index([deviceId, timestamp(sort: Desc)])
   @@index([eventType, timestamp(sort: Desc)])
@@ -46,23 +70,33 @@ model HeartbeatCounters {
 
 model ApiKeys {
   id        String    @id @default(uuid())
+  tenantId  String?
+  tenant    Tenants?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   keyHash   String    @unique
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
   expiresAt DateTime?
+
+  @@index([tenantId])
 }
 
 model AuditLogs {
   id        String   @id @default(uuid())
+  tenantId  String?
+  tenant    Tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   action    String
   actorType String
   details   String
   createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model WebhookSubscriptions {
   id         String   @id @default(uuid())
+  tenantId   String?
+  tenant     Tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   url        String
   secret     String
   eventTypes String[]
@@ -70,11 +104,14 @@ model WebhookSubscriptions {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([isActive])
 }
 
 model PendingWebhookDeliveries {
   id            String   @id @default(uuid())
+  tenantId      String?
+  tenant        Tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   url           String
   secret        String
   payload       Json
@@ -83,7 +120,9 @@ model PendingWebhookDeliveries {
   nextAttemptAt DateTime @default(now())
   createdAt     DateTime @default(now())
 
+  @@index([tenantId])
   @@index([nextAttemptAt])
   @@index([createdAt])
 }
+
 

@@ -36,7 +36,7 @@ Under Workflow B:
 ## Phase 1: Database Schema & Multi-Tenant Data Model
 
 ### 1.1 Update `src/database/schema.prisma`
-Add `Tenants` model and add `tenantId` relationships to `Devices`, `Events`, `ApiKeys`, `WebhookSubscriptions`, and `AuditLogs`.
+Add `Tenants` model and add `tenantId` relationships to `Devices`, `Events`, `ApiKeys`, `WebhookSubscriptions`, `PendingWebhookDeliveries`, and `AuditLogs`.
 
 ```prisma
 model Tenants {
@@ -48,11 +48,12 @@ model Tenants {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  devices              Devices[]
-  events               Events[]
-  apiKeys              ApiKeys[]
-  webhookSubscriptions WebhookSubscriptions[]
-  auditLogs            AuditLogs[]
+  devices                  Devices[]
+  events                   Events[]
+  apiKeys                  ApiKeys[]
+  webhookSubscriptions     WebhookSubscriptions[]
+  pendingWebhookDeliveries PendingWebhookDeliveries[]
+  auditLogs                AuditLogs[]
 }
 
 model Devices {
@@ -86,6 +87,7 @@ model Events {
   createdAt     DateTime @default(now())
 
   @@index([tenantId, timestamp(sort: Desc)])
+  @@index([tenantId, deviceId, timestamp(sort: Desc)])
   @@index([timestamp(sort: Desc)])
   @@index([deviceId, timestamp(sort: Desc)])
   @@index([eventType, timestamp(sort: Desc)])
@@ -120,6 +122,23 @@ model WebhookSubscriptions {
   @@index([isActive])
 }
 
+model PendingWebhookDeliveries {
+  id            String   @id @default(uuid())
+  tenantId      String?
+  tenant        Tenants? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  url           String
+  secret        String
+  payload       Json
+  attempts      Int      @default(0)
+  maxAttempts   Int      @default(5)
+  nextAttemptAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([nextAttemptAt])
+  @@index([createdAt])
+}
+
 model AuditLogs {
   id        String   @id @default(uuid())
   tenantId  String?
@@ -128,6 +147,8 @@ model AuditLogs {
   actorType String
   details   String
   createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
 ```
 
@@ -139,50 +160,62 @@ model AuditLogs {
 
 ## Phase 2: Ingestion & Auto-Provisioning Engine (Workflow B)
 
-### 2.1 Webhook Receiver (`src/routes/webhooks.ts`)
+### 2.1 Webhook Receiver Middleware (`src/middleware/tenantIngestionAuth.ts`)
 * Extract `tenantKey` from query string (`req.query.tenantKey`) or header (`X-Tenant-Key`).
-* Validate `tenantKey` against `Tenants` table.
+* **Synchronously validate** `tenantKey` against `Tenants` table before processing or responding.
 * If `tenantKey` is missing or invalid:
-  * Reject with `401 Unauthorized` or process as global/unassigned if configured.
+  * Reject synchronously with `401 Unauthorized`.
+* Attach validated `tenant` object (`req.tenant`) to the request context.
 
-### 2.2 Zero-Touch Device Auto-Provisioning Logic (`src/services/hikvisionService.ts`)
+### 2.2 Zero-Touch Device Auto-Provisioning & Ownership Guard (`src/services/webhookService.ts`)
 * When an event payload arrives:
   1. Extract `deviceId` (MAC / Serial number).
   2. Check if device exists in `Devices` table.
-  3. If missing: Automatically register device under `tenantId` with status `ONLINE`.
-  4. If device exists but has no `tenantId`: Assign `tenantId` to the device.
-  5. Store event record attached to `tenantId`.
+  3. **New Device**: Automatically register device under `req.tenant.id` with status `ONLINE`.
+  4. **Unassigned Device**: If device exists but has `tenantId == null`, assign `req.tenant.id` to the device.
+  5. **Conflict Guard**: If device already belongs to a different tenant (`device.tenantId != req.tenant.id`):
+     * Do **NOT** overwrite device ownership.
+     * Record an audit log entry: `UNAUTHORIZED_DEVICE_TENANT_MISMATCH`.
+     * Reject or drop event processing to prevent cross-tenant device hijacking.
+  6. Store event record attached to `req.tenant.id`.
 
 ### 2.3 Real-Time WebSocket & Webhook Relay Scoping
-* **Socket.IO (`src/websocket/broadcast.ts`)**:
+* **Socket.IO Security (`src/websocket/socket.ts` & `src/websocket/broadcast.ts`)**:
   * Broadcast events to `tenant:<tenantId>` and `tenant:<tenantId>:device:<deviceId>` rooms.
-* **Outbound Webhooks (`src/services/webhookService.ts`)**:
+  * **Enforce Subscription Authorization**: In `socket.on('subscribe', room)`, verify that the connected user/API-key belongs to `<tenantId>` before calling `socket.join()`. Reject subscription attempts for foreign tenant rooms.
+* **Outbound Webhooks (`src/services/webhookDispatcher.ts`)**:
   * Filter `WebhookSubscriptions` where `subscription.tenantId == event.tenantId`.
+  * Store `tenantId` in `PendingWebhookDeliveries` records for isolation and cleanup.
 
 ---
 
 ## Phase 3: Auth & Management APIs
 
 ### 3.1 Tenant Authentication (`src/routes/tenantAuth.ts`)
-* `POST /api/tenant/register`: Register new HRMS tenant account and generate `tenantKey`.
-* `POST /api/tenant/login`: Login tenant user and return Tenant JWT token.
-* `GET /api/tenant/me`: Return tenant profile & ingestion configuration URL.
+* `POST /api/tenant/register`: Register new HRMS tenant account and generate unique `tenantKey` (`tn_live_...`).
+* `POST /api/tenant/login`: Authenticate tenant credentials and return Tenant JWT token containing `tenantId` and `role`.
+* `GET /api/tenant/me`: Return tenant profile & custom zero-touch ingestion webhook URL.
 
 ### 3.2 Tenant API Key Management (`src/routes/apiKeys.ts`)
-* Allow tenants (authenticated via Tenant JWT) to generate and manage API keys for their HRMS integration.
-* Automatically assign `tenantId` to generated API keys.
+* Allow tenants (authenticated via Tenant JWT) to generate and revoke `X-API-Key` credentials.
+* Automatically bind generated API keys to `req.user.tenantId`.
 
-### 3.3 Tenant Scoped Endpoints (`src/middleware/flexibleAuth.ts`)
-* Enforce automatic query filtering in controllers:
+### 3.3 Tenant Scoped Endpoints & IDOR Prevention (`src/middleware/flexibleAuth.ts`)
+* `flexibleAuthMiddleware` populates `req.user.tenantId` and `req.user.role` ('TENANT_ADMIN' | 'SUPER_ADMIN').
+* Enforce automatic query filtering in controllers for both list and single-resource routes:
   * `GET /api/events`: Scoped to `where: { tenantId: req.user.tenantId }`.
+  * `GET /api/events/:id`: Scoped to `where: { id: req.params.id, tenantId: req.user.tenantId }` (Prevents IDOR).
   * `GET /api/devices`: Scoped to `where: { tenantId: req.user.tenantId }`.
+  * `GET /api/devices/:id`: Scoped to `where: { id: req.params.id, tenantId: req.user.tenantId }`.
   * `GET /api/webhooks/subscriptions`: Scoped to `tenantId`.
+  * `DELETE /api/webhooks/subscriptions/:id`: Scoped to `where: { id: req.params.id, tenantId: req.user.tenantId }`.
+* **Super Admin Role**: Requests with `role === 'SUPER_ADMIN'` bypass tenant filtering if no `tenantId` filter is explicitly specified.
 
 ---
 
 ## Phase 4: Developer Web Portal UI
 
-Build a responsive UI portal hosted at `/portal` or `/dashboard`.
+Build a responsive UI portal hosted at `/portal` or `/dashboard` (served statically via Express `express.static('public')` or SPA fallback).
 
 ### Key Features of the Portal:
 1. **Tenant Authentication Page**: Login / Registration for HRMS admins.
@@ -215,13 +248,17 @@ Build a responsive UI portal hosted at `/portal` or `/dashboard`.
 2. **Workflow B Auto-Provisioning**:
    * Send HTTP POST to `/api/webhooks/hikvision?tenantKey=<TenantA_Key>` with payload for `DEV-A1`.
    * Verify `DEV-A1` is automatically created and assigned to Tenant A.
-3. **Tenant Data Isolation**:
+3. **Device Re-Binding Conflict Guard**:
+   * Send HTTP POST to `/api/webhooks/hikvision?tenantKey=<TenantB_Key>` with payload for `DEV-A1`.
+   * Verify `DEV-A1` remains assigned to Tenant A and an `UNAUTHORIZED_DEVICE_TENANT_MISMATCH` audit log is created.
+4. **Tenant Data & API Isolation (IDOR Check)**:
    * Query `GET /api/events` using Tenant A's API Key -> Ensure only `DEV-A1` events are returned.
    * Query `GET /api/events` using Tenant B's API Key -> Ensure `DEV-A1` events are NOT visible.
-4. **Outbound Webhook Delivery Isolation**:
+   * Query `GET /api/events/:id` for Tenant A event using Tenant B's API Key -> Verify `404 Not Found`.
+5. **Outbound Webhook Delivery Isolation**:
    * Register webhook for Tenant A. Trigger event for Tenant B device -> Ensure Tenant A webhook is NOT triggered.
-5. **WebSocket Isolation**:
-   * Connect Socket.IO client using Tenant A API Key -> Verify client only receives events for Tenant A devices.
+6. **WebSocket Room Security**:
+   * Connect Socket.IO client using Tenant B credentials. Attempt to join `tenant:<TenantA_ID>` -> Verify subscription is rejected with `Unauthorized`.
 
 ---
 
