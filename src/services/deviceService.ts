@@ -3,8 +3,9 @@ import { broadcastDeviceUpdate } from '../websocket/broadcast.js';
 import { logger } from '../utils/logger.js';
 
 export class DeviceService {
-  public async getDevices(options?: { status?: string; type?: string; limit?: number; offset?: number }) {
+  public async getDevices(options?: { tenantId?: string; status?: string; type?: string; limit?: number; offset?: number }) {
     const where: any = {};
+    if (options?.tenantId) where.tenantId = options.tenantId;
     if (options?.status) where.status = options.status;
     if (options?.type) where.type = options.type;
 
@@ -31,16 +32,19 @@ export class DeviceService {
     };
   }
 
-  public async getDeviceById(id: string) {
-    return prisma.devices.findUnique({
-      where: { id },
+  public async getDeviceById(id: string, tenantId?: string) {
+    const where: any = { id };
+    if (tenantId) where.tenantId = tenantId;
+    return prisma.devices.findFirst({
+      where,
     });
   }
 
-  public async createDevice(data: { id: string; name: string; type: string; status?: string; firmwareVersion?: string }) {
+  public async createDevice(data: { id: string; tenantId?: string; name: string; type: string; status?: string; firmwareVersion?: string }) {
     return prisma.devices.create({
       data: {
         id: data.id,
+        tenantId: data.tenantId || null,
         name: data.name,
         type: data.type,
         status: data.status || 'ONLINE',

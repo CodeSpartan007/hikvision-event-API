@@ -10,13 +10,19 @@ export async function flexibleAuthMiddleware(req: Request, res: Response, next: 
 
   if (apiKey && typeof apiKey === 'string') {
     try {
-      const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
+      const hash = crypto.createHash('sha256').update(apiKey.trim()).digest('hex');
       const apiKeyRecord = await prisma.apiKeys.findUnique({
         where: { keyHash: hash },
       });
 
       if (apiKeyRecord && apiKeyRecord.isActive && (!apiKeyRecord.expiresAt || apiKeyRecord.expiresAt > new Date())) {
-        req.user = { clientName: apiKeyRecord.name, apiKeyId: apiKeyRecord.id, isApiKeyClient: true };
+        req.user = {
+          clientName: apiKeyRecord.name,
+          apiKeyId: apiKeyRecord.id,
+          tenantId: apiKeyRecord.tenantId || undefined,
+          isApiKeyClient: true,
+          role: apiKeyRecord.tenantId ? 'TENANT_ADMIN' : 'SUPER_ADMIN',
+        };
         next();
         return;
       }
@@ -28,8 +34,15 @@ export async function flexibleAuthMiddleware(req: Request, res: Response, next: 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
-      const decoded = jwt.verify(token, env.JWT_SECRET!);
-      req.user = decoded;
+      const decoded: any = jwt.verify(token, env.JWT_SECRET!);
+      if (typeof decoded === 'object' && decoded !== null) {
+        if (!decoded.role) {
+          decoded.role = decoded.tenantId ? 'TENANT_ADMIN' : 'SUPER_ADMIN';
+        }
+        req.user = decoded;
+      } else {
+        req.user = decoded;
+      }
       next();
       return;
     } catch (err) {

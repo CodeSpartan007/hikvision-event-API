@@ -29,9 +29,11 @@ router.post('/api/api-keys', adminOnlyMiddleware, async (req, res) => {
   try {
     const rawApiKey = 'sep_live_' + crypto.randomBytes(24).toString('hex');
     const keyHash = crypto.createHash('sha256').update(rawApiKey).digest('hex');
+    const tenantId = req.user?.role === 'SUPER_ADMIN' ? (req.body.tenantId || null) : (req.user?.tenantId || null);
 
     const apiKeyRecord = await prisma.apiKeys.create({
       data: {
+        tenantId,
         name,
         keyHash,
         expiresAt: parsedExpiresAt,
@@ -41,6 +43,7 @@ router.post('/api/api-keys', adminOnlyMiddleware, async (req, res) => {
     res.status(201).json({
       message: 'API Key created successfully. Store this key securely; it will not be shown again!',
       id: apiKeyRecord.id,
+      tenantId: apiKeyRecord.tenantId,
       name: apiKeyRecord.name,
       apiKey: rawApiKey,
       createdAt: apiKeyRecord.createdAt,
@@ -53,9 +56,16 @@ router.post('/api/api-keys', adminOnlyMiddleware, async (req, res) => {
 
 router.get('/api/api-keys', async (req, res) => {
   try {
+    const where: any = {};
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
     const keys = await prisma.apiKeys.findMany({
+      where,
       select: {
         id: true,
+        tenantId: true,
         name: true,
         isActive: true,
         createdAt: true,
@@ -74,10 +84,16 @@ router.get('/api/api-keys/:id', async (req, res) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
   try {
-    const apiKeyRecord = await prisma.apiKeys.findUnique({
-      where: { id },
+    const where: any = { id };
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
+    const apiKeyRecord = await prisma.apiKeys.findFirst({
+      where,
       select: {
         id: true,
+        tenantId: true,
         name: true,
         isActive: true,
         createdAt: true,
@@ -101,7 +117,12 @@ router.patch('/api/api-keys/:id', adminOnlyMiddleware, async (req, res) => {
   const { name, isActive, expiresAt } = req.body;
 
   try {
-    const existing = await prisma.apiKeys.findUnique({ where: { id } });
+    const where: any = { id };
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
+    const existing = await prisma.apiKeys.findFirst({ where });
     if (!existing) {
       res.status(404).json({ error: 'Not Found', message: 'API Key not found' });
       return;
@@ -139,6 +160,7 @@ router.patch('/api/api-keys/:id', adminOnlyMiddleware, async (req, res) => {
       data: updateData,
       select: {
         id: true,
+        tenantId: true,
         name: true,
         isActive: true,
         createdAt: true,
@@ -156,7 +178,12 @@ router.delete('/api/api-keys/:id', adminOnlyMiddleware, async (req, res) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
   try {
-    const existing = await prisma.apiKeys.findUnique({ where: { id } });
+    const where: any = { id };
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
+    const existing = await prisma.apiKeys.findFirst({ where });
     if (!existing) {
       res.status(404).json({ error: 'Not Found', message: 'API Key not found' });
       return;

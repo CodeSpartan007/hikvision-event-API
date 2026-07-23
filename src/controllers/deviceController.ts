@@ -20,12 +20,13 @@ const updateDeviceSchema = z.object({
 export class DeviceController {
   public getDevices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
       const status = req.query.status ? String(req.query.status) : undefined;
       const type = req.query.type ? String(req.query.type) : undefined;
       const limit = req.query.limit ? Number(req.query.limit) : undefined;
       const offset = req.query.offset ? Number(req.query.offset) : undefined;
 
-      const devices = await deviceService.getDevices({ status, type, limit, offset });
+      const devices = await deviceService.getDevices({ tenantId, status, type, limit, offset });
       res.status(200).json(devices);
     } catch (err) {
       next(err);
@@ -34,8 +35,9 @@ export class DeviceController {
 
   public getDeviceById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
       const id = req.params.id as string;
-      const device = await deviceService.getDeviceById(id);
+      const device = await deviceService.getDeviceById(id, tenantId);
 
       if (!device) {
         res.status(404).json({ error: 'Not Found', message: `Device with ID ${id} not found` });
@@ -50,14 +52,16 @@ export class DeviceController {
 
   public createDevice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
       const deviceData = createDeviceSchema.parse(req.body);
+
       const existing = await deviceService.getDeviceById(deviceData.id);
       if (existing) {
         res.status(409).json({ error: 'Conflict', message: `Device with ID ${deviceData.id} already exists` });
         return;
       }
 
-      const device = await deviceService.createDevice(deviceData);
+      const device = await deviceService.createDevice({ ...deviceData, tenantId });
       res.status(201).json(device);
     } catch (err) {
       next(err);
@@ -66,10 +70,11 @@ export class DeviceController {
 
   public updateDevice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
       const id = req.params.id as string;
       const updateData = updateDeviceSchema.parse(req.body);
 
-      const existing = await deviceService.getDeviceById(id);
+      const existing = await deviceService.getDeviceById(id, tenantId);
       if (!existing) {
         res.status(404).json({ error: 'Not Found', message: `Device with ID ${id} not found` });
         return;
@@ -84,9 +89,10 @@ export class DeviceController {
 
   public deleteDevice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
       const id = req.params.id as string;
 
-      const existing = await deviceService.getDeviceById(id);
+      const existing = await deviceService.getDeviceById(id, tenantId);
       if (!existing) {
         res.status(404).json({ error: 'Not Found', message: `Device with ID ${id} not found` });
         return;

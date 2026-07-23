@@ -2,6 +2,7 @@ import { prisma } from '../database/prisma.js';
 import { AppError } from '../utils/errors.js';
 
 export interface EventQueryOptions {
+  tenantId?: string;
   limit?: number;
   offset?: number;
   cursor?: string;
@@ -20,6 +21,9 @@ export class EventService {
 
     const where: any = {};
 
+    if (options.tenantId) {
+      where.tenantId = options.tenantId;
+    }
     if (options.deviceId) {
       where.deviceId = options.deviceId;
     }
@@ -78,9 +82,13 @@ export class EventService {
     };
   }
 
-  public async getEventById(id: string) {
-    return prisma.events.findUnique({
-      where: { id },
+  public async getEventById(id: string, tenantId?: string) {
+    const where: any = { id };
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
+    return prisma.events.findFirst({
+      where,
     });
   }
 }

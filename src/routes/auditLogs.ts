@@ -11,6 +11,9 @@ router.get('/api/audit-logs', async (req, res) => {
     const offset = req.query.offset ? Math.max(Number(req.query.offset) || 0, 0) : 0;
 
     const where: any = {};
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
     if (action) where.action = action;
     if (actorType) where.actorType = actorType;
 
@@ -41,7 +44,12 @@ router.get('/api/audit-logs/:id', async (req, res) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
   try {
-    const log = await prisma.auditLogs.findUnique({ where: { id } });
+    const where: any = { id };
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
+    const log = await prisma.auditLogs.findFirst({ where });
     if (!log) {
       res.status(404).json({ error: 'Not Found', message: 'Audit log entry not found' });
       return;

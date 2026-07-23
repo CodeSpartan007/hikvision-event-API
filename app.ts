@@ -6,6 +6,7 @@ import webhookRouter from './src/routes/webhooks.js';
 import devicesRouter from './src/routes/devices.js';
 import eventsRouter from './src/routes/events.js';
 import authRouter from './src/routes/auth.js';
+import tenantAuthRouter from './src/routes/tenantAuth.js';
 import webhookSubscriptionsRouter from './src/routes/webhookSubscriptions.js';
 import apiKeysRouter from './src/routes/apiKeys.js';
 import auditLogsRouter from './src/routes/auditLogs.js';
@@ -45,6 +46,7 @@ setupSwagger(app);
 app.use(healthRouter);
 app.use(webhookRouter);
 app.use(authRouter);
+app.use(tenantAuthRouter);
 
 app.use('/api', flexibleAuthMiddleware);
 app.use(webhookSubscriptionsRouter);

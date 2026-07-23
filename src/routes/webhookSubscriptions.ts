@@ -51,9 +51,11 @@ router.post('/api/webhooks/subscriptions', adminOnlyMiddleware, async (req, res)
 
   try {
     const webhookSecret = 'whsec_' + crypto.randomBytes(24).toString('hex');
+    const tenantId = req.user?.role === 'SUPER_ADMIN' ? (req.body.tenantId || null) : (req.user?.tenantId || null);
 
     const subscription = await prisma.webhookSubscriptions.create({
       data: {
+        tenantId,
         url,
         secret: webhookSecret,
         eventTypes: normalizedEventTypes,
@@ -63,6 +65,7 @@ router.post('/api/webhooks/subscriptions', adminOnlyMiddleware, async (req, res)
     res.status(201).json({
       message: 'Webhook subscription registered successfully',
       subscriptionId: subscription.id,
+      tenantId: subscription.tenantId,
       url: subscription.url,
       eventTypes: subscription.eventTypes,
       webhookSecret,
@@ -75,9 +78,16 @@ router.post('/api/webhooks/subscriptions', adminOnlyMiddleware, async (req, res)
 
 router.get('/api/webhooks/subscriptions', async (req, res) => {
   try {
+    const where: any = {};
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
     const subscriptions = await prisma.webhookSubscriptions.findMany({
+      where,
       select: {
         id: true,
+        tenantId: true,
         url: true,
         eventTypes: true,
         isActive: true,
@@ -97,10 +107,16 @@ router.get('/api/webhooks/subscriptions/:id', async (req, res) => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
   try {
-    const subscription = await prisma.webhookSubscriptions.findUnique({
-      where: { id },
+    const where: any = { id };
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
+    const subscription = await prisma.webhookSubscriptions.findFirst({
+      where,
       select: {
         id: true,
+        tenantId: true,
         url: true,
         eventTypes: true,
         isActive: true,
@@ -125,7 +141,12 @@ router.patch('/api/webhooks/subscriptions/:id', adminOnlyMiddleware, async (req,
   const { url, eventTypes, isActive } = req.body;
 
   try {
-    const existing = await prisma.webhookSubscriptions.findUnique({ where: { id } });
+    const where: any = { id };
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
+    const existing = await prisma.webhookSubscriptions.findFirst({ where });
     if (!existing) {
       res.status(404).json({ error: 'Not Found', message: 'Webhook subscription not found' });
       return;
@@ -172,6 +193,7 @@ router.patch('/api/webhooks/subscriptions/:id', adminOnlyMiddleware, async (req,
       data: updateData,
       select: {
         id: true,
+        tenantId: true,
         url: true,
         eventTypes: true,
         isActive: true,
@@ -190,7 +212,12 @@ router.delete('/api/webhooks/subscriptions/:id', adminOnlyMiddleware, async (req
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
   try {
-    const existing = await prisma.webhookSubscriptions.findUnique({ where: { id } });
+    const where: any = { id };
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      where.tenantId = req.user?.tenantId || null;
+    }
+
+    const existing = await prisma.webhookSubscriptions.findFirst({ where });
     if (!existing) {
       res.status(404).json({ error: 'Not Found', message: 'Webhook subscription not found' });
       return;

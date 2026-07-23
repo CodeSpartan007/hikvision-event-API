@@ -16,6 +16,8 @@ const VALID_EVENT_TYPES = new Set([
 export class EventController {
   public getEvents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
+
       let limit: number | undefined = undefined;
       if (req.query.limit !== undefined) {
         const parsed = Number(req.query.limit);
@@ -75,6 +77,7 @@ export class EventController {
       }
 
       const result = await eventService.getEvents({
+        tenantId,
         limit,
         offset,
         cursor,
@@ -94,8 +97,9 @@ export class EventController {
 
   public getEventById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
       const id = req.params.id as string;
-      const event = await eventService.getEventById(id);
+      const event = await eventService.getEventById(id, tenantId);
 
       if (!event) {
         res.status(404).json({ error: 'Not Found', message: `Event with ID ${id} not found` });
