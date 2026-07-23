@@ -439,6 +439,37 @@ Lightweight, high-performance microservice for receiving, parsing, storing, and 
         },
       },
     },
+    '/api/tenant/me': {
+      delete: {
+        tags: ['Auth'],
+        summary: 'Delete tenant account',
+        description: 'Permanently deletes the authenticated tenant account and all associated devices, telemetry events, API keys, and webhooks.',
+        security: [{ BearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Account successfully deleted',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string', example: 'Account and all associated tenant data permanently deleted.' },
+                  },
+                },
+              },
+            },
+          },
+          '401': {
+            description: 'Unauthorized session',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/webhooks/hikvision': {
       post: {
         tags: ['Webhooks Ingestion'],

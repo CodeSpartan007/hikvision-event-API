@@ -147,4 +147,43 @@ describe('Password Reset with Resend Integration Tests', () => {
     const loginData = await newLoginRes.json();
     assert.ok(loginData.token);
   });
+
+  it('6. Permanently deletes tenant account and all cascade data via DELETE /api/tenant/me', async () => {
+    const loginRes = await fetch(`${baseUrl}/api/tenant/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: testEmail,
+        password: newPassword,
+      }),
+    });
+    const loginData = await loginRes.json();
+    const token = loginData.token;
+
+    const tenant = await prisma.tenants.findUnique({ where: { email: testEmail } });
+    assert.ok(tenant);
+
+    await prisma.devices.create({
+      data: {
+        id: 'DEV-DELETE-TEST',
+        tenantId: tenant.id,
+        name: 'Delete Test Device',
+        type: 'camera',
+        status: 'ONLINE',
+        firmwareVersion: 'v1.0',
+      },
+    });
+
+    const deleteRes = await fetch(`${baseUrl}/api/tenant/me`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    assert.strictEqual(deleteRes.status, 200);
+
+    const deletedTenant = await prisma.tenants.findUnique({ where: { email: testEmail } });
+    assert.strictEqual(deletedTenant, null);
+
+    const deletedDevice = await prisma.devices.findUnique({ where: { id: 'DEV-DELETE-TEST' } });
+    assert.strictEqual(deletedDevice, null);
+  });
 });

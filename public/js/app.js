@@ -159,8 +159,11 @@ function renderUserProfile() {
           </div>
         </div>
         <div class="profile-window-divider"></div>
-        <button class="profile-logout-btn" onclick="handleLogout()">
+        <button class="profile-logout-btn" onclick="handleLogout()" style="margin-bottom: 0.5rem;">
           <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </button>
+        <button class="profile-delete-btn" onclick="openDeleteAccountModal(event)">
+          <i class="fa-solid fa-trash-can"></i> Delete Account
         </button>
       </div>
     </div>
@@ -172,6 +175,49 @@ function toggleProfileMenu(event) {
   const dropdown = document.getElementById('profileDropdownWindow');
   if (dropdown) {
     dropdown.classList.toggle('show');
+  }
+}
+
+function openDeleteAccountModal(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById('profileDropdownWindow');
+  if (dropdown) dropdown.classList.remove('show');
+  const confirmInput = document.getElementById('deleteConfirmInput');
+  if (confirmInput) confirmInput.value = '';
+  openModal('deleteAccountModal');
+}
+
+async function handleDeleteAccount(e) {
+  e.preventDefault();
+  const confirmText = document.getElementById('deleteConfirmInput').value.trim();
+
+  if (confirmText !== 'DELETE') {
+    showToast('Please type DELETE to confirm account deletion', 'error');
+    return;
+  }
+
+  try {
+    const data = await apiFetch('/api/tenant/me', {
+      method: 'DELETE'
+    });
+
+    if (data && data.message) {
+      closeModal('deleteAccountModal');
+      showToast(data.message, 'success');
+      state.token = null;
+      state.tenant = null;
+      localStorage.removeItem('tenantToken');
+      localStorage.removeItem('tenantData');
+      if (state.socket) {
+        state.socket.disconnect();
+        state.socket = null;
+      }
+      setTimeout(() => {
+        showAuthView();
+      }, 1000);
+    }
+  } catch (err) {
+    // Handled by apiFetch toast
   }
 }
 

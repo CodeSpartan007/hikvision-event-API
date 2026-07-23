@@ -259,6 +259,33 @@ export class TenantAuthController {
       next(err);
     }
   };
+
+  public deleteAccount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) {
+        res.status(400).json({ error: 'Bad Request', message: 'No tenant context associated with current user session' });
+        return;
+      }
+
+      const tenant = await prisma.tenants.findUnique({ where: { id: tenantId } });
+      if (!tenant) {
+        res.status(404).json({ error: 'Not Found', message: 'Tenant account not found' });
+        return;
+      }
+
+      // Cascade delete permanently removes all Devices, Events, ApiKeys, WebhookSubscriptions, PendingWebhookDeliveries, AuditLogs
+      await prisma.tenants.delete({
+        where: { id: tenantId },
+      });
+
+      res.status(200).json({
+        message: 'Account and all associated tenant data permanently deleted.',
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 export const tenantAuthController = new TenantAuthController();

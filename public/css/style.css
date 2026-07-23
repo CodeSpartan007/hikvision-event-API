@@ -311,6 +311,29 @@ body {
   color: #ffffff;
 }
 
+.profile-delete-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border: 1px dashed rgba(239, 68, 68, 0.4);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.profile-delete-btn:hover {
+  background: var(--danger);
+  color: #ffffff;
+  border-style: solid;
+}
+
 .tenant-pill {
   display: flex;
   align-items: center;
