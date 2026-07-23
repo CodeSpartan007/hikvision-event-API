@@ -17,6 +17,7 @@ let state = {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   checkResetTokenInUrl();
+  initLiveValidation();
   if (state.token) {
     showPortalView();
   } else {
@@ -32,7 +33,7 @@ function checkResetTokenInUrl() {
   }
 }
 
-// Global listeners for profile dropdown
+// Global listeners for profile dropdown & modals
 document.addEventListener('click', (e) => {
   const dropdown = document.getElementById('profileDropdownWindow');
   const btn = document.getElementById('profileIconBtn');
@@ -40,6 +41,10 @@ document.addEventListener('click', (e) => {
     if (!dropdown.contains(e.target) && (!btn || !btn.contains(e.target))) {
       dropdown.classList.remove('show');
     }
+  }
+
+  if (e.target.classList.contains('modal-backdrop')) {
+    e.target.classList.remove('active');
   }
 });
 
@@ -49,6 +54,9 @@ document.addEventListener('keydown', (e) => {
     if (dropdown && dropdown.classList.contains('show')) {
       dropdown.classList.remove('show');
     }
+    document.querySelectorAll('.modal-backdrop.active').forEach(modal => {
+      modal.classList.remove('active');
+    });
   }
 });
 
@@ -83,12 +91,24 @@ function toggleTheme() {
 // Toast Notifications
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
+  if (!container) return;
+
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
-  toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+  let icon = 'fa-circle-check';
+  if (type === 'error') icon = 'fa-circle-exclamation';
+  if (type === 'info') icon = 'fa-circle-info';
+  if (type === 'warning') icon = 'fa-triangle-exclamation';
+
+  toast.innerHTML = `
+    <i class="fa-solid ${icon}"></i>
+    <span>${escapeHtml(message)}</span>
+    <button type="button" class="toast-close-btn" onclick="this.parentElement.remove()" title="Close notification">&times;</button>
+  `;
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+  setTimeout(() => {
+    if (toast.parentElement) toast.remove();
+  }, 4500);
 }
 
 // API Helper
@@ -101,7 +121,12 @@ async function apiFetch(endpoint, options = {}) {
 
   try {
     const response = await fetch(endpoint, { ...options, headers });
-    const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (e) {
+      data = {};
+    }
     
     if (!response.ok) {
       if (response.status === 401 && !endpoint.includes('/login')) {
@@ -109,12 +134,280 @@ async function apiFetch(endpoint, options = {}) {
         showToast('Session expired. Please log in again.', 'error');
         return null;
       }
-      throw new Error(data.message || 'API request failed');
+      const errorMsg = data.message || (data.error ? `${data.error}: API request failed` : 'API request failed');
+      const err = new Error(errorMsg);
+      err.data = data;
+      err.status = response.status;
+      throw err;
     }
     return data;
   } catch (err) {
-    showToast(err.message, 'error');
+    if (!err.data) {
+      showToast(err.message || 'Network request failed', 'error');
+    }
     throw err;
+  }
+}
+
+// Validation & Form Error Helpers
+function setFieldError(fieldInputOrId, errorMessage) {
+  let input = typeof fieldInputOrId === 'string' ? document.getElementById(fieldInputOrId) : fieldInputOrId;
+  let errorEl = null;
+  
+  if (typeof fieldInputOrId === 'string' && fieldInputOrId.endsWith('Error')) {
+    errorEl = document.getElementById(fieldInputOrId);
+  } else if (input) {
+    errorEl = document.getElementById(`${input.id}Error`);
+  }
+
+  if (input && input.classList) {
+    input.classList.add('is-invalid');
+    input.classList.remove('is-valid');
+  }
+
+  if (errorEl) {
+    const span = errorEl.querySelector('span');
+    if (span) span.textContent = errorMessage;
+    else errorEl.textContent = errorMessage;
+    errorEl.classList.add('show');
+  }
+}
+
+function setFieldValid(fieldInputOrId) {
+  let input = typeof fieldInputOrId === 'string' ? document.getElementById(fieldInputOrId) : fieldInputOrId;
+  let errorEl = input ? document.getElementById(`${input.id}Error`) : null;
+
+  if (input && input.classList) {
+    input.classList.remove('is-invalid');
+    input.classList.add('is-valid');
+  }
+
+  if (errorEl) {
+    errorEl.classList.remove('show');
+    const span = errorEl.querySelector('span');
+    if (span) span.textContent = '';
+  }
+}
+
+function clearFieldError(fieldInputOrId) {
+  let input = typeof fieldInputOrId === 'string' ? document.getElementById(fieldInputOrId) : fieldInputOrId;
+  let errorEl = input ? document.getElementById(`${input.id}Error`) : null;
+
+  if (input && input.classList) {
+    input.classList.remove('is-invalid', 'is-valid');
+  }
+
+  if (errorEl) {
+    errorEl.classList.remove('show');
+    const span = errorEl.querySelector('span');
+    if (span) span.textContent = '';
+  }
+}
+
+function clearFormErrors(formElement) {
+  if (!formElement) return;
+  const inputs = formElement.querySelectorAll('.form-control');
+  inputs.forEach(input => clearFieldError(input));
+  const errors = formElement.querySelectorAll('.field-error');
+  errors.forEach(err => {
+    err.classList.remove('show');
+    const span = err.querySelector('span');
+    if (span) span.textContent = '';
+  });
+}
+
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const icon = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) icon.className = 'fa-solid fa-eye-slash';
+  } else {
+    input.type = 'password';
+    if (icon) icon.className = 'fa-solid fa-eye';
+  }
+}
+
+function setButtonLoading(btnOrId, loadingText) {
+  const btn = typeof btnOrId === 'string' ? document.getElementById(btnOrId) : btnOrId;
+  if (!btn) return;
+  btn.dataset.origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${loadingText}`;
+}
+
+function resetButtonLoading(btnOrId) {
+  const btn = typeof btnOrId === 'string' ? document.getElementById(btnOrId) : btnOrId;
+  if (!btn) return;
+  btn.disabled = false;
+  btn.classList.remove('loading');
+  if (btn.dataset.origHtml) {
+    btn.innerHTML = btn.dataset.origHtml;
+  }
+}
+
+function checkPasswordStrength(password, prefix = 'reg') {
+  const container = document.getElementById(`${prefix}PasswordStrength`);
+  const label = document.getElementById(`${prefix}StrengthLabel`);
+  const fill = document.getElementById(`${prefix}StrengthFill`);
+  const reqLength = document.getElementById(`${prefix}ReqLength`);
+  const reqNum = document.getElementById(`${prefix}ReqNum`);
+
+  if (!container) return;
+
+  if (!password) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+
+  const hasLength = password.length >= 6;
+  const hasNumOrSymbol = /[0-9!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  if (reqLength) {
+    reqLength.className = `req-item ${hasLength ? 'valid' : 'invalid'}`;
+    reqLength.innerHTML = `<i class="fa-solid ${hasLength ? 'fa-check' : 'fa-circle-xmark'}"></i> At least 6 chars`;
+  }
+
+  if (reqNum) {
+    reqNum.className = `req-item ${hasNumOrSymbol ? 'valid' : 'invalid'}`;
+    reqNum.innerHTML = `<i class="fa-solid ${hasNumOrSymbol ? 'fa-check' : 'fa-circle-xmark'}"></i> Contains number or symbol`;
+  }
+
+  let score = 0;
+  if (hasLength) score++;
+  if (hasNumOrSymbol) score++;
+  if (password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
+
+  if (score <= 1) {
+    if (fill) fill.className = 'password-strength-fill weak';
+    if (label) { label.textContent = 'Weak'; label.style.color = 'var(--danger)'; }
+  } else if (score === 2) {
+    if (fill) fill.className = 'password-strength-fill medium';
+    if (label) { label.textContent = 'Medium'; label.style.color = 'var(--warning)'; }
+  } else {
+    if (fill) fill.className = 'password-strength-fill strong';
+    if (label) { label.textContent = 'Strong'; label.style.color = 'var(--success)'; }
+  }
+}
+
+function checkPasswordMatch() {
+  const newPass = document.getElementById('resetNewPassword')?.value || '';
+  const confirmPass = document.getElementById('resetConfirmPassword')?.value || '';
+  const badge = document.getElementById('resetMatchBadge');
+  const confirmInput = document.getElementById('resetConfirmPassword');
+
+  if (!confirmPass) {
+    if (badge) badge.innerHTML = '';
+    if (confirmInput) clearFieldError(confirmInput);
+    return;
+  }
+
+  if (newPass === confirmPass) {
+    if (badge) badge.innerHTML = `<span class="match-badge matched"><i class="fa-solid fa-check"></i> Passwords Match</span>`;
+    if (confirmInput) setFieldValid(confirmInput);
+  } else {
+    if (badge) badge.innerHTML = `<span class="match-badge mismatched"><i class="fa-solid fa-xmark"></i> Do Not Match</span>`;
+    if (confirmInput) setFieldError(confirmInput, 'Passwords do not match');
+  }
+}
+
+function mapServerErrorsToForm(formElement, errData) {
+  if (!formElement || !errData) return false;
+  let mappedAny = false;
+
+  if (errData.errors && typeof errData.errors === 'object') {
+    Object.keys(errData.errors).forEach(fieldName => {
+      const rawErr = errData.errors[fieldName];
+      const errorMsg = Array.isArray(rawErr) ? rawErr.join(', ') : String(rawErr);
+
+      const input = formElement.querySelector(`#${fieldName}`) ||
+                    formElement.querySelector(`[name="${fieldName}"]`) ||
+                    formElement.querySelector(`[id$="${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}"]`) ||
+                    formElement.querySelector(`[id*="${fieldName}"]`);
+
+      if (input) {
+        setFieldError(input, errorMsg);
+        mappedAny = true;
+      }
+    });
+  }
+
+  if (errData.message) {
+    const msg = errData.message;
+    const lowerMsg = msg.toLowerCase();
+    if (lowerMsg.includes('email')) {
+      const emailInput = formElement.querySelector('input[type="email"]');
+      if (emailInput) {
+        setFieldError(emailInput, msg);
+        mappedAny = true;
+      }
+    } else if (lowerMsg.includes('password')) {
+      const passInput = formElement.querySelector('input[type="password"]');
+      if (passInput) {
+        setFieldError(passInput, msg);
+        mappedAny = true;
+      }
+    } else if (lowerMsg.includes('url')) {
+      const urlInput = formElement.querySelector('input[type="url"]');
+      if (urlInput) {
+        setFieldError(urlInput, msg);
+        mappedAny = true;
+      }
+    } else if (lowerMsg.includes('serial') || lowerMsg.includes('device')) {
+      const devInput = formElement.querySelector('#devIdInput');
+      if (devInput) {
+        setFieldError(devInput, msg);
+        mappedAny = true;
+      }
+    }
+  }
+
+  return mappedAny;
+}
+
+function initLiveValidation() {
+  document.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', () => {
+      if (el.classList.contains('is-invalid')) {
+        clearFieldError(el);
+      }
+    });
+  });
+
+  const regPassword = document.getElementById('regPassword');
+  if (regPassword) {
+    regPassword.addEventListener('input', (e) => {
+      checkPasswordStrength(e.target.value, 'reg');
+    });
+  }
+
+  const resetNewPassword = document.getElementById('resetNewPassword');
+  if (resetNewPassword) {
+    resetNewPassword.addEventListener('input', (e) => {
+      checkPasswordStrength(e.target.value, 'reset');
+      checkPasswordMatch();
+    });
+  }
+
+  const resetConfirmPassword = document.getElementById('resetConfirmPassword');
+  if (resetConfirmPassword) {
+    resetConfirmPassword.addEventListener('input', checkPasswordMatch);
+  }
+
+  const deleteConfirmInput = document.getElementById('deleteConfirmInput');
+  if (deleteConfirmInput) {
+    deleteConfirmInput.addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (val === 'DELETE') {
+        setFieldValid(deleteConfirmInput);
+      } else if (val.length >= 6 && val !== 'DELETE') {
+        setFieldError(deleteConfirmInput, 'Must match DELETE in capital letters');
+      }
+    });
   }
 }
 
@@ -183,18 +476,27 @@ function openDeleteAccountModal(event) {
   const dropdown = document.getElementById('profileDropdownWindow');
   if (dropdown) dropdown.classList.remove('show');
   const confirmInput = document.getElementById('deleteConfirmInput');
-  if (confirmInput) confirmInput.value = '';
+  if (confirmInput) {
+    confirmInput.value = '';
+    clearFieldError(confirmInput);
+  }
   openModal('deleteAccountModal');
 }
 
 async function handleDeleteAccount(e) {
   e.preventDefault();
-  const confirmText = document.getElementById('deleteConfirmInput').value.trim();
+  const form = e.target;
+  clearFormErrors(form);
+
+  const confirmInput = document.getElementById('deleteConfirmInput');
+  const confirmText = confirmInput.value.trim();
 
   if (confirmText !== 'DELETE') {
-    showToast('Please type DELETE to confirm account deletion', 'error');
+    setFieldError(confirmInput, 'You must type DELETE in all capital letters to confirm account deletion');
     return;
   }
+
+  setButtonLoading('deleteAccountSubmitBtn', 'Deleting Account...');
 
   try {
     const data = await apiFetch('/api/tenant/me', {
@@ -217,7 +519,11 @@ async function handleDeleteAccount(e) {
       }, 1000);
     }
   } catch (err) {
-    // Handled by apiFetch toast
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Failed to delete account', 'error');
+    }
+  } finally {
+    resetButtonLoading('deleteAccountSubmitBtn');
   }
 }
 
@@ -230,10 +536,10 @@ function showAuthSubView(subView, event, token) {
   const resetForm = document.getElementById('resetForm');
   const authTabsHeader = document.getElementById('authTabsHeader');
 
-  if (loginForm) loginForm.style.display = 'none';
-  if (regForm) regForm.style.display = 'none';
-  if (forgotForm) forgotForm.style.display = 'none';
-  if (resetForm) resetForm.style.display = 'none';
+  if (loginForm) { loginForm.style.display = 'none'; clearFormErrors(loginForm); }
+  if (regForm) { regForm.style.display = 'none'; clearFormErrors(regForm); }
+  if (forgotForm) { forgotForm.style.display = 'none'; clearFormErrors(forgotForm); }
+  if (resetForm) { resetForm.style.display = 'none'; clearFormErrors(resetForm); }
 
   if (subView === 'forgot') {
     if (authTabsHeader) authTabsHeader.style.display = 'none';
@@ -259,25 +565,39 @@ function switchAuthTab(type, event) {
   const authTabsHeader = document.getElementById('authTabsHeader');
 
   if (authTabsHeader) authTabsHeader.style.display = 'flex';
-  if (forgotForm) forgotForm.style.display = 'none';
-  if (resetForm) resetForm.style.display = 'none';
+  if (forgotForm) { forgotForm.style.display = 'none'; clearFormErrors(forgotForm); }
+  if (resetForm) { resetForm.style.display = 'none'; clearFormErrors(resetForm); }
 
   if (type === 'login') {
     if (loginTab) loginTab.classList.add('active');
     if (regTab) regTab.classList.remove('active');
-    if (loginForm) loginForm.style.display = 'block';
-    if (regForm) regForm.style.display = 'none';
+    if (loginForm) { loginForm.style.display = 'block'; clearFormErrors(loginForm); }
+    if (regForm) { regForm.style.display = 'none'; clearFormErrors(regForm); }
   } else {
     if (regTab) regTab.classList.add('active');
     if (loginTab) loginTab.classList.remove('active');
-    if (regForm) regForm.style.display = 'block';
-    if (loginForm) loginForm.style.display = 'none';
+    if (regForm) { regForm.style.display = 'block'; clearFormErrors(regForm); }
+    if (loginForm) { loginForm.style.display = 'none'; clearFormErrors(loginForm); }
   }
 }
 
 async function handleForgotPassword(e) {
   e.preventDefault();
-  const email = document.getElementById('forgotEmail').value;
+  const form = document.getElementById('forgotForm');
+  clearFormErrors(form);
+
+  const emailInput = document.getElementById('forgotEmail');
+  const email = emailInput.value.trim();
+
+  if (!email) {
+    setFieldError(emailInput, 'Email address is required');
+    return;
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setFieldError(emailInput, 'Please enter a valid email address');
+    return;
+  }
+
+  setButtonLoading('forgotSubmitBtn', 'Sending Reset Link...');
 
   try {
     const data = await apiFetch('/api/tenant/forgot-password', {
@@ -287,24 +607,53 @@ async function handleForgotPassword(e) {
 
     if (data && data.message) {
       showToast(data.message, 'success');
-      document.getElementById('forgotEmail').value = '';
+      emailInput.value = '';
       setTimeout(() => switchAuthTab('login'), 3000);
     }
   } catch (err) {
-    // Handled by apiFetch toast
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Failed to process password reset request', 'error');
+    }
+  } finally {
+    resetButtonLoading('forgotSubmitBtn');
   }
 }
 
 async function handleResetPassword(e) {
   e.preventDefault();
-  const token = document.getElementById('resetTokenInput').value;
-  const newPassword = document.getElementById('resetNewPassword').value;
-  const confirmPassword = document.getElementById('resetConfirmPassword').value;
+  const form = document.getElementById('resetForm');
+  clearFormErrors(form);
+
+  const tokenInput = document.getElementById('resetTokenInput');
+  const newPassInput = document.getElementById('resetNewPassword');
+  const confirmPassInput = document.getElementById('resetConfirmPassword');
+
+  const token = tokenInput.value;
+  const newPassword = newPassInput.value;
+  const confirmPassword = confirmPassInput.value;
+
+  let isValid = true;
+  if (!token) {
+    setFieldError('resetTokenInputError', 'Reset token is missing or invalid. Please click the link in your email.');
+    isValid = false;
+  }
+
+  if (!newPassword) {
+    setFieldError(newPassInput, 'New password is required');
+    isValid = false;
+  } else if (newPassword.length < 6) {
+    setFieldError(newPassInput, 'New password must be at least 6 characters long');
+    isValid = false;
+  }
 
   if (newPassword !== confirmPassword) {
-    showToast('Passwords do not match', 'error');
-    return;
+    setFieldError(confirmPassInput, 'Passwords do not match');
+    isValid = false;
   }
+
+  if (!isValid) return;
+
+  setButtonLoading('resetSubmitBtn', 'Updating Password...');
 
   try {
     const data = await apiFetch('/api/tenant/reset-password', {
@@ -314,21 +663,49 @@ async function handleResetPassword(e) {
 
     if (data && data.message) {
       showToast(data.message, 'success');
-      document.getElementById('resetNewPassword').value = '';
-      document.getElementById('resetConfirmPassword').value = '';
+      newPassInput.value = '';
+      confirmPassInput.value = '';
       window.history.replaceState({}, document.title, window.location.pathname);
       switchAuthTab('login');
     }
   } catch (err) {
-    // Handled by apiFetch toast
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Failed to reset password. The link may have expired.', 'error');
+    }
+  } finally {
+    resetButtonLoading('resetSubmitBtn');
   }
 }
 
 // Auth Handlers
 async function handleLogin(e) {
   e.preventDefault();
-  const email = document.getElementById('loginEmail').value;
-  const password = document.getElementById('loginPassword').value;
+  const form = document.getElementById('loginForm');
+  clearFormErrors(form);
+
+  const emailInput = document.getElementById('loginEmail');
+  const passwordInput = document.getElementById('loginPassword');
+
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+
+  let isValid = true;
+  if (!email) {
+    setFieldError(emailInput, 'Email address is required');
+    isValid = false;
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setFieldError(emailInput, 'Please enter a valid email address (e.g. user@organization.com)');
+    isValid = false;
+  }
+
+  if (!password) {
+    setFieldError(passwordInput, 'Password is required');
+    isValid = false;
+  }
+
+  if (!isValid) return;
+
+  setButtonLoading('loginSubmitBtn', 'Signing In...');
 
   try {
     const data = await apiFetch('/api/tenant/login', {
@@ -341,19 +718,56 @@ async function handleLogin(e) {
       state.tenant = data.tenant;
       localStorage.setItem('tenantToken', data.token);
       localStorage.setItem('tenantData', JSON.stringify(data.tenant));
-      showToast('Logged in successfully!');
+      showToast('Logged in successfully!', 'success');
       showPortalView();
     }
   } catch (err) {
-    // Error handled in apiFetch
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Login failed. Invalid email or password.', 'error');
+    }
+  } finally {
+    resetButtonLoading('loginSubmitBtn');
   }
 }
 
 async function handleRegister(e) {
   e.preventDefault();
-  const name = document.getElementById('regName').value;
-  const email = document.getElementById('regEmail').value;
-  const password = document.getElementById('regPassword').value;
+  const form = document.getElementById('registerForm');
+  clearFormErrors(form);
+
+  const nameInput = document.getElementById('regName');
+  const emailInput = document.getElementById('regEmail');
+  const passwordInput = document.getElementById('regPassword');
+
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+
+  let isValid = true;
+  if (!name) {
+    setFieldError(nameInput, 'Organization name is required');
+    isValid = false;
+  }
+
+  if (!email) {
+    setFieldError(emailInput, 'Work email address is required');
+    isValid = false;
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setFieldError(emailInput, 'Please enter a valid work email address');
+    isValid = false;
+  }
+
+  if (!password) {
+    setFieldError(passwordInput, 'Password is required');
+    isValid = false;
+  } else if (password.length < 6) {
+    setFieldError(passwordInput, 'Password must be at least 6 characters long');
+    isValid = false;
+  }
+
+  if (!isValid) return;
+
+  setButtonLoading('registerSubmitBtn', 'Creating Account...');
 
   try {
     const data = await apiFetch('/api/tenant/register', {
@@ -366,11 +780,15 @@ async function handleRegister(e) {
       state.tenant = data.tenant;
       localStorage.setItem('tenantToken', data.token);
       localStorage.setItem('tenantData', JSON.stringify(data.tenant));
-      showToast('Tenant account created successfully!');
+      showToast('Tenant account created successfully!', 'success');
       showPortalView();
     }
   } catch (err) {
-    // Error handled in apiFetch
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Registration failed. Please check input fields.', 'error');
+    }
+  } finally {
+    resetButtonLoading('registerSubmitBtn');
   }
 }
 
@@ -381,6 +799,7 @@ function handleLogout() {
   localStorage.removeItem('tenantData');
   if (state.socket) {
     state.socket.disconnect();
+    state.socket = null;
   }
   showAuthView();
 }
@@ -390,7 +809,9 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
 
-  event.currentTarget.classList.add('active');
+  if (window.event && window.event.currentTarget) {
+    window.event.currentTarget.classList.add('active');
+  }
   const target = document.getElementById(`tab-${tabId}`);
   if (target) target.classList.add('active');
 
@@ -423,20 +844,30 @@ async function loadTenantProfile() {
 
 function copyIngestionUrl() {
   const input = document.getElementById('ingestionUrlInput');
+  if (!input) return;
   input.select();
   navigator.clipboard.writeText(input.value);
-  showToast('Ingestion Webhook URL copied to clipboard!');
+  showToast('Ingestion Webhook URL copied to clipboard!', 'success');
+  
+  const btn = window.event?.currentTarget || document.querySelector('#ingestionUrlInput ~ button');
+  if (btn) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+    setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
+  }
 }
 
 // Dashboard Overview Data
 async function loadDashboardData() {
+  const tbody = document.getElementById('overviewEventsTable');
   try {
-    const [devices, eventsData] = await Promise.all([
+    const [devicesRes, eventsData] = await Promise.all([
       apiFetch('/api/devices'),
       apiFetch('/api/events?limit=10')
     ]);
 
-    if (devices) {
+    if (devicesRes) {
+      const devices = Array.isArray(devicesRes) ? devicesRes : (devicesRes.data || []);
       state.devices = devices;
       const total = devices.length;
       const online = devices.filter(d => d.status === 'ONLINE').length;
@@ -451,7 +882,17 @@ async function loadDashboardData() {
       document.getElementById('statTotalEvents').textContent = eventsData.total || eventsData.data.length;
       renderOverviewEventsTable(eventsData.data);
     }
-  } catch (err) {}
+  } catch (err) {
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--danger); padding: 1.5rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Unable to load recent events. ${escapeHtml(err.message)}
+          </td>
+        </tr>
+      `;
+    }
+  }
 }
 
 function renderOverviewEventsTable(events) {
@@ -492,27 +933,42 @@ function renderOverviewEventsTable(events) {
 
 // Devices Management
 async function loadDevices() {
-  const statusFilter = document.getElementById('deviceStatusFilter').value;
+  const statusFilter = document.getElementById('deviceStatusFilter')?.value || '';
   let url = '/api/devices';
   if (statusFilter) url += `?status=${statusFilter}`;
 
+  const tbody = document.getElementById('devicesTableBody');
   try {
-    const devices = await apiFetch(url);
-    if (devices) {
+    const res = await apiFetch(url);
+    if (res) {
+      const devices = Array.isArray(res) ? res : (res.data || []);
       state.devices = devices;
       renderDevicesTable(devices);
     }
-  } catch (err) {}
+  } catch (err) {
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--danger); padding: 2rem;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+            <p>Failed to load hardware devices. ${escapeHtml(err.message)}</p>
+            <button class="btn btn-secondary btn-sm" onclick="loadDevices()" style="margin-top: 0.75rem;"><i class="fa-solid fa-rotate"></i> Retry Loading</button>
+          </td>
+        </tr>
+      `;
+    }
+  }
 }
 
 function renderDevicesTable(devices) {
   const tbody = document.getElementById('devicesTableBody');
-  if (!devices || devices.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No devices found. Configure your Hikvision device or add one manually.</td></tr>`;
+  const deviceList = Array.isArray(devices) ? devices : (devices?.data || []);
+  if (!deviceList || deviceList.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No devices found. Configure your Hikvision device or add one manually.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = devices.map(d => `
+  tbody.innerHTML = deviceList.map(d => `
     <tr>
       <td><strong>${escapeHtml(d.id)}</strong></td>
       <td>${escapeHtml(d.name)}</td>
@@ -557,23 +1013,59 @@ function renderDevicesTable(devices) {
 
 async function handleCreateDevice(e) {
   e.preventDefault();
-  const id = document.getElementById('devIdInput').value;
-  const name = document.getElementById('devNameInput').value;
-  const type = document.getElementById('devTypeInput').value;
-  const firmwareVersion = document.getElementById('devFirmwareInput').value;
+  const form = e.target;
+  clearFormErrors(form);
+
+  const devIdInput = document.getElementById('devIdInput');
+  const devNameInput = document.getElementById('devNameInput');
+  const devTypeInput = document.getElementById('devTypeInput');
+  const devFirmwareInput = document.getElementById('devFirmwareInput');
+
+  const id = devIdInput.value.trim();
+  const name = devNameInput.value.trim();
+  const type = devTypeInput.value;
+  const firmwareVersion = devFirmwareInput.value.trim();
+
+  let isValid = true;
+  if (!id) {
+    setFieldError(devIdInput, 'Device serial number / ID is required');
+    isValid = false;
+  }
+  if (!name) {
+    setFieldError(devNameInput, 'Device name is required');
+    isValid = false;
+  }
+  if (!type) {
+    setFieldError(devTypeInput, 'Please select a device type');
+    isValid = false;
+  }
+
+  if (!isValid) return;
+
+  setButtonLoading('saveDeviceSubmitBtn', 'Saving Device...');
 
   try {
     await apiFetch('/api/devices', {
       method: 'POST',
       body: JSON.stringify({ id, name, type, firmwareVersion })
     });
-    showToast(`Device ${id} registered successfully`);
+    showToast(`Device ${id} registered successfully`, 'success');
     closeModal('registerDeviceModal');
+    form.reset();
     loadDevices();
-  } catch (err) {}
+  } catch (err) {
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Failed to register device', 'error');
+    }
+  } finally {
+    resetButtonLoading('saveDeviceSubmitBtn');
+  }
 }
 
 function openEditDeviceModal(id, name, type, status) {
+  const form = document.querySelector('#editDeviceModal form');
+  clearFormErrors(form);
+
   document.getElementById('editDeviceId').value = id;
   document.getElementById('editDevName').value = name;
   document.getElementById('editDevType').value = type;
@@ -583,46 +1075,82 @@ function openEditDeviceModal(id, name, type, status) {
 
 async function handleUpdateDevice(e) {
   e.preventDefault();
+  const form = e.target;
+  clearFormErrors(form);
+
   const id = document.getElementById('editDeviceId').value;
-  const name = document.getElementById('editDevName').value;
-  const type = document.getElementById('editDevType').value;
-  const status = document.getElementById('editDevStatus').value;
+  const devNameInput = document.getElementById('editDevName');
+  const devTypeInput = document.getElementById('editDevType');
+  const devStatusInput = document.getElementById('editDevStatus');
+
+  const name = devNameInput.value.trim();
+  const type = devTypeInput.value;
+  const status = devStatusInput.value;
+
+  let isValid = true;
+  if (!name) {
+    setFieldError(devNameInput, 'Device name is required');
+    isValid = false;
+  }
+
+  if (!isValid) return;
+
+  setButtonLoading('updateDeviceSubmitBtn', 'Updating...');
 
   try {
     await apiFetch(`/api/devices/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ name, type, status })
     });
-    showToast(`Device ${id} updated`);
+    showToast(`Device ${id} updated successfully`, 'success');
     closeModal('editDeviceModal');
     loadDevices();
-  } catch (err) {}
+  } catch (err) {
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Failed to update device', 'error');
+    }
+  } finally {
+    resetButtonLoading('updateDeviceSubmitBtn');
+  }
 }
 
 async function handleDeleteDevice(id) {
   if (!confirm(`Are you sure you want to remove device ${id}?`)) return;
   try {
     await apiFetch(`/api/devices/${id}`, { method: 'DELETE' });
-    showToast(`Device ${id} deleted`);
+    showToast(`Device ${id} deleted successfully`, 'success');
     loadDevices();
   } catch (err) {}
 }
 
 // API Keys Management
 async function loadApiKeys() {
+  const tbody = document.getElementById('apiKeysTableBody');
   try {
     const res = await apiFetch('/api/api-keys');
     if (res && res.data) {
       state.apiKeys = res.data;
       renderApiKeysTable(res.data);
     }
-  } catch (err) {}
+  } catch (err) {
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; color: var(--danger); padding: 2rem;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+            <p>Failed to load API keys. ${escapeHtml(err.message)}</p>
+            <button class="btn btn-secondary btn-sm" onclick="loadApiKeys()" style="margin-top: 0.75rem;"><i class="fa-solid fa-rotate"></i> Retry Loading</button>
+          </td>
+        </tr>
+      `;
+    }
+  }
 }
 
 function renderApiKeysTable(keys) {
   const tbody = document.getElementById('apiKeysTableBody');
   if (!keys || keys.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No API keys generated yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No API keys generated yet.</td></tr>`;
     return;
   }
 
@@ -648,9 +1176,20 @@ function renderApiKeysTable(keys) {
 
 async function handleCreateApiKey(e) {
   e.preventDefault();
-  const name = document.getElementById('apiKeyNameInput').value;
+  const form = e.target;
+  clearFormErrors(form);
+
+  const nameInput = document.getElementById('apiKeyNameInput');
   const expiresAtVal = document.getElementById('apiKeyExpInput').value;
+  const name = nameInput.value.trim();
   const expiresAt = expiresAtVal ? new Date(expiresAtVal).toISOString() : undefined;
+
+  if (!name) {
+    setFieldError(nameInput, 'Key description / name is required');
+    return;
+  }
+
+  setButtonLoading('createApiKeySubmitBtn', 'Generating Key...');
 
   try {
     const data = await apiFetch('/api/api-keys', {
@@ -659,51 +1198,79 @@ async function handleCreateApiKey(e) {
     });
 
     closeModal('createApiKeyModal');
+    form.reset();
     if (data && data.apiKey) {
       document.getElementById('revealedKeySecret').value = data.apiKey;
       openModal('revealKeyModal');
       loadApiKeys();
     }
-  } catch (err) {}
+  } catch (err) {
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Failed to generate API Key', 'error');
+    }
+  } finally {
+    resetButtonLoading('createApiKeySubmitBtn');
+  }
 }
 
 function copySecretKey() {
   const input = document.getElementById('revealedKeySecret');
+  if (!input) return;
   input.select();
   navigator.clipboard.writeText(input.value);
-  showToast('API Key copied to clipboard!');
+  showToast('API Key copied to clipboard!', 'success');
+
+  const btn = document.getElementById('copySecretKeyBtn');
+  if (btn) {
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+    setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
+  }
 }
 
 async function handleDeleteApiKey(id) {
   if (!confirm('Revoke this API Key?')) return;
   try {
     await apiFetch(`/api/api-keys/${id}`, { method: 'DELETE' });
-    showToast('API Key revoked');
+    showToast('API Key revoked successfully', 'success');
     loadApiKeys();
   } catch (err) {}
 }
 
 // Webhooks Management
 async function loadWebhooks() {
+  const tbody = document.getElementById('webhooksTableBody');
   try {
     const res = await apiFetch('/api/webhooks/subscriptions');
     if (res && res.data) {
       state.webhooks = res.data;
       renderWebhooksTable(res.data);
     }
-  } catch (err) {}
+  } catch (err) {
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--danger); padding: 2rem;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+            <p>Failed to load webhook subscriptions. ${escapeHtml(err.message)}</p>
+            <button class="btn btn-secondary btn-sm" onclick="loadWebhooks()" style="margin-top: 0.75rem;"><i class="fa-solid fa-rotate"></i> Retry Loading</button>
+          </td>
+        </tr>
+      `;
+    }
+  }
 }
 
 function renderWebhooksTable(subs) {
   const tbody = document.getElementById('webhooksTableBody');
   if (!subs || subs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No outbound webhook subscriptions.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No outbound webhook subscriptions.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = subs.map(s => `
     <tr>
-      <td><code style="color: var(--accent-cyan);">${escapeHtml(s.url)}</code></td>
+      <td><code style="color: var(--accent);">${escapeHtml(s.url)}</code></td>
       <td>${s.eventTypes.map(t => `<span class="type-tag">${escapeHtml(t)}</span>`).join(' ')}</td>
       <td>
         <span class="status-badge ${s.isActive ? 'online' : 'offline'}">
@@ -722,31 +1289,55 @@ function renderWebhooksTable(subs) {
 
 async function handleCreateWebhook(e) {
   e.preventDefault();
-  const url = document.getElementById('webhookUrlInput').value;
+  const form = e.target;
+  clearFormErrors(form);
+
+  const urlInput = document.getElementById('webhookUrlInput');
+  const url = urlInput.value.trim();
   const checkboxes = document.querySelectorAll('input[name="whEvent"]:checked');
   const eventTypes = Array.from(checkboxes).map(c => c.value);
 
-  if (eventTypes.length === 0) {
-    showToast('Please select at least one event type', 'error');
-    return;
+  let isValid = true;
+  if (!url) {
+    setFieldError(urlInput, 'Endpoint target URL is required');
+    isValid = false;
+  } else if (!/^https?:\/\/.+/i.test(url)) {
+    setFieldError(urlInput, 'Webhook URL must start with http:// or https://');
+    isValid = false;
   }
+
+  if (eventTypes.length === 0) {
+    setFieldError('whEventsError', 'Please select at least one event type');
+    isValid = false;
+  }
+
+  if (!isValid) return;
+
+  setButtonLoading('createWebhookSubmitBtn', 'Creating Subscription...');
 
   try {
     await apiFetch('/api/webhooks/subscriptions', {
       method: 'POST',
       body: JSON.stringify({ url, eventTypes })
     });
-    showToast('Webhook subscription added');
+    showToast('Webhook subscription added successfully', 'success');
     closeModal('createWebhookModal');
+    form.reset();
     loadWebhooks();
-  } catch (err) {}
+  } catch (err) {
+    if (!mapServerErrorsToForm(form, err.data)) {
+      showToast(err.message || 'Failed to create webhook subscription', 'error');
+    }
+  } finally {
+    resetButtonLoading('createWebhookSubmitBtn');
+  }
 }
 
 async function handleDeleteWebhook(id) {
   if (!confirm('Delete this webhook subscription?')) return;
   try {
     await apiFetch(`/api/webhooks/subscriptions/${id}`, { method: 'DELETE' });
-    showToast('Webhook subscription deleted');
+    showToast('Webhook subscription deleted successfully', 'success');
     loadWebhooks();
   } catch (err) {}
 }
@@ -789,7 +1380,7 @@ function initWebSocket() {
 
 function appendTelemetryItem(event) {
   const container = document.getElementById('telemetryStreamList');
-  const filter = document.getElementById('eventTypeFilter').value;
+  const filter = document.getElementById('eventTypeFilter')?.value || 'ALL';
 
   if (filter !== 'ALL' && event.eventType !== filter) return;
 
@@ -875,11 +1466,23 @@ function viewEventJson(eventInput) {
 
 // Modal Helpers
 function openModal(id) {
-  document.getElementById(id).classList.add('active');
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.add('active');
+    const firstInput = modal.querySelector('input:not([type="hidden"]), select');
+    if (firstInput) {
+      setTimeout(() => firstInput.focus(), 100);
+    }
+  }
 }
 
 function closeModal(id) {
-  document.getElementById(id).classList.remove('active');
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.remove('active');
+    const form = modal.querySelector('form');
+    if (form) clearFormErrors(form);
+  }
 }
 
 // Security Helper

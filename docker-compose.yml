@@ -5,13 +5,18 @@ services:
     build: .
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       - PORT=3000
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/hikvision_events?schema=public
       - NODE_ENV=production
-      - JWT_SECRET=super-secret-production-key
-      - ADMIN_PASSWORD=admin123
-      - TIMEZONE=UTC
+      - JWT_SECRET=${JWT_SECRET:-super-secret-production-key}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - TIMEZONE=${TIMEZONE:-UTC}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - APP_BASE_URL=${APP_BASE_URL}
     depends_on:
       - db
     restart: always

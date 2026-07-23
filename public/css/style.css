@@ -949,6 +949,184 @@ tr:hover td {
   box-shadow: 0 0 0 3px rgba(74, 127, 167, 0.2);
 }
 
+.form-control.is-invalid {
+  border-color: var(--danger) !important;
+  background-color: rgba(239, 68, 68, 0.04) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+.form-control.is-valid {
+  border-color: var(--success) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Field Error & Helper Hint Text */
+.field-error {
+  display: none;
+  font-size: 0.8rem;
+  color: var(--danger);
+  margin-top: 0.35rem;
+  font-weight: 500;
+  align-items: center;
+  gap: 0.35rem;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.field-error.show {
+  display: flex;
+}
+
+.field-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+  line-height: 1.35;
+}
+
+/* Password Input Wrapper & Toggle Eye Button */
+.input-password-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.input-password-wrapper .form-control {
+  padding-right: 2.75rem;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.35rem;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  z-index: 2;
+}
+
+.password-toggle-btn:hover {
+  color: var(--text-main);
+  background: rgba(74, 127, 167, 0.15);
+}
+
+/* Password Strength Indicator */
+.password-strength-container {
+  margin-top: 0.5rem;
+  display: none;
+}
+
+.password-strength-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+  color: var(--text-muted);
+}
+
+.password-strength-label {
+  font-weight: 600;
+}
+
+.password-strength-bar {
+  height: 4px;
+  width: 100%;
+  background: var(--border-color);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+
+.password-strength-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.password-strength-fill.weak { width: 33%; background: var(--danger); }
+.password-strength-fill.medium { width: 66%; background: var(--warning); }
+.password-strength-fill.strong { width: 100%; background: var(--success); }
+
+.password-requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.req-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.req-item.valid {
+  color: var(--success);
+}
+
+.req-item.invalid {
+  color: var(--text-muted);
+}
+
+/* Password Match Indicator */
+.match-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.match-badge.matched {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.match-badge.mismatched {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* Disabled & Loading Button States */
+.btn:disabled, .btn.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Toast Notification Improvements */
+.toast.info { border-left: 4px solid var(--accent); }
+.toast.warning { border-left: 4px solid var(--warning); }
+
+.toast-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  margin-left: auto;
+  padding: 0.2rem;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.toast-close-btn:hover {
+  color: var(--text-main);
+}
+
 /* Auth Card */
 .auth-wrapper {
   max-width: 440px;

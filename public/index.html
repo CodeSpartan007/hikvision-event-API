@@ -49,70 +49,134 @@
       </div>
 
       <!-- Login Form -->
-      <form id="loginForm" onsubmit="handleLogin(event)">
+      <form id="loginForm" onsubmit="handleLogin(event)" novalidate>
         <div class="form-group">
-          <label class="form-label">Email Address</label>
+          <label class="form-label" for="loginEmail">Email Address</label>
           <input type="email" id="loginEmail" class="form-control" placeholder="admin@organization.com" required>
+          <div class="field-error" id="loginEmailError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div class="form-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <label class="form-label" style="margin-bottom: 0;">Password</label>
+            <label class="form-label" for="loginPassword" style="margin-bottom: 0;">Password</label>
             <a href="#" onclick="showAuthSubView('forgot', event)" style="font-size: 0.8rem; color: var(--accent); text-decoration: none;">Forgot Password?</a>
           </div>
-          <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+          <div class="input-password-wrapper">
+            <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('loginPassword', this)" title="Toggle password visibility">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <div class="field-error" id="loginPasswordError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
       </form>
 
       <!-- Register Form -->
-      <form id="registerForm" onsubmit="handleRegister(event)" style="display: none;">
+      <form id="registerForm" onsubmit="handleRegister(event)" style="display: none;" novalidate>
         <div class="form-group">
-          <label class="form-label">Organization</label>
+          <label class="form-label" for="regName">Organization Name</label>
           <input type="text" id="regName" class="form-control" placeholder="Acme Ltd" required>
+          <div class="field-error" id="regNameError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Work Email</label>
+          <label class="form-label" for="regEmail">Work Email</label>
           <input type="email" id="regEmail" class="form-control" placeholder="developer@acme.com" required>
+          <div class="field-error" id="regEmailError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Password (Min 6 chars)</label>
-          <input type="password" id="regPassword" class="form-control" placeholder="••••••••" required minlength="6">
+          <label class="form-label" for="regPassword">Password (Min 6 chars)</label>
+          <div class="input-password-wrapper">
+            <input type="password" id="regPassword" class="form-control" placeholder="••••••••" required minlength="6">
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('regPassword', this)" title="Toggle password visibility">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <div class="field-error" id="regPasswordError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+          
+          <!-- Password Strength Indicator -->
+          <div class="password-strength-container" id="regPasswordStrength">
+            <div class="password-strength-header">
+              <span>Password Strength:</span>
+              <span class="password-strength-label" id="regStrengthLabel">Weak</span>
+            </div>
+            <div class="password-strength-bar">
+              <div class="password-strength-fill" id="regStrengthFill"></div>
+            </div>
+            <div class="password-requirements">
+              <span class="req-item" id="regReqLength"><i class="fa-solid fa-circle-xmark"></i> At least 6 chars</span>
+              <span class="req-item" id="regReqNum"><i class="fa-solid fa-circle-xmark"></i> Contains number or symbol</span>
+            </div>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-user-plus"></i> Sign Up</button>
+        <button type="submit" id="registerSubmitBtn" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-user-plus"></i> Sign Up</button>
       </form>
 
       <!-- Forgot Password Form -->
-      <form id="forgotForm" onsubmit="handleForgotPassword(event)" style="display: none;">
+      <form id="forgotForm" onsubmit="handleForgotPassword(event)" style="display: none;" novalidate>
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);"><i class="fa-solid fa-lock-open" style="color: var(--accent);"></i> Forgot Password</h3>
         <p style="margin-bottom: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
           Enter your account email address below and we'll send you instructions to reset your password.
         </p>
         <div class="form-group">
-          <label class="form-label">Email Address</label>
+          <label class="form-label" for="forgotEmail">Email Address</label>
           <input type="email" id="forgotEmail" class="form-control" placeholder="admin@organization.com" required>
+          <div class="field-error" id="forgotEmailError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;"><i class="fa-solid fa-paper-plane"></i> Send Reset Link</button>
+        <button type="submit" id="forgotSubmitBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;"><i class="fa-solid fa-paper-plane"></i> Send Reset Link</button>
         <div style="text-align: center; margin-top: 0.75rem;">
           <a href="#" onclick="switchAuthTab('login', event)" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Back to Login</a>
         </div>
       </form>
 
       <!-- Reset Password Form (Triggered via email token) -->
-      <form id="resetForm" onsubmit="handleResetPassword(event)" style="display: none;">
+      <form id="resetForm" onsubmit="handleResetPassword(event)" style="display: none;" novalidate>
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);"><i class="fa-solid fa-key" style="color: var(--accent);"></i> Reset Your Password</h3>
         <p style="margin-bottom: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
           Enter and confirm your new password below.
         </p>
         <input type="hidden" id="resetTokenInput">
+        <div class="field-error" id="resetTokenInputError" style="margin-bottom: 0.75rem;"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+        
         <div class="form-group">
-          <label class="form-label">New Password (Min 6 chars)</label>
-          <input type="password" id="resetNewPassword" class="form-control" placeholder="••••••••" required minlength="6">
+          <label class="form-label" for="resetNewPassword">New Password (Min 6 chars)</label>
+          <div class="input-password-wrapper">
+            <input type="password" id="resetNewPassword" class="form-control" placeholder="••••••••" required minlength="6">
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('resetNewPassword', this)" title="Toggle password visibility">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <div class="field-error" id="resetNewPasswordError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+          
+          <!-- Password Strength Indicator -->
+          <div class="password-strength-container" id="resetPasswordStrength">
+            <div class="password-strength-header">
+              <span>Password Strength:</span>
+              <span class="password-strength-label" id="resetStrengthLabel">Weak</span>
+            </div>
+            <div class="password-strength-bar">
+              <div class="password-strength-fill" id="resetStrengthFill"></div>
+            </div>
+            <div class="password-requirements">
+              <span class="req-item" id="resetReqLength"><i class="fa-solid fa-circle-xmark"></i> At least 6 chars</span>
+              <span class="req-item" id="resetReqNum"><i class="fa-solid fa-circle-xmark"></i> Contains number or symbol</span>
+            </div>
+          </div>
         </div>
+        
         <div class="form-group">
-          <label class="form-label">Confirm New Password</label>
-          <input type="password" id="resetConfirmPassword" class="form-control" placeholder="••••••••" required minlength="6">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <label class="form-label" for="resetConfirmPassword" style="margin-bottom: 0;">Confirm New Password</label>
+            <span id="resetMatchBadge"></span>
+          </div>
+          <div class="input-password-wrapper">
+            <input type="password" id="resetConfirmPassword" class="form-control" placeholder="••••••••" required minlength="6">
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('resetConfirmPassword', this)" title="Toggle password visibility">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <div class="field-error" id="resetConfirmPasswordError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;"><i class="fa-solid fa-check"></i> Update Password</button>
+        <button type="submit" id="resetSubmitBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;"><i class="fa-solid fa-check"></i> Update Password</button>
         <div style="text-align: center; margin-top: 0.75rem;">
           <a href="#" onclick="switchAuthTab('login', event)" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Back to Login</a>
         </div>
@@ -407,30 +471,35 @@
         <h3 class="modal-title">Register Device</h3>
         <button class="modal-close" onclick="closeModal('registerDeviceModal')">&times;</button>
       </div>
-      <form onsubmit="handleCreateDevice(event)">
+      <form onsubmit="handleCreateDevice(event)" novalidate>
         <div class="form-group">
-          <label class="form-label">Device Serial Number / ID</label>
+          <label class="form-label" for="devIdInput">Device Serial Number / ID</label>
           <input type="text" id="devIdInput" class="form-control" placeholder="DS-K1T671M-10294" required>
+          <div class="field-error" id="devIdInputError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+          <div class="field-hint">Unique hardware serial from device label or Hikvision interface</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Device Name</label>
+          <label class="form-label" for="devNameInput">Device Name</label>
           <input type="text" id="devNameInput" class="form-control" placeholder="Main Lobby Turnstile" required>
+          <div class="field-error" id="devNameInputError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Device Type</label>
+          <label class="form-label" for="devTypeInput">Device Type</label>
           <select id="devTypeInput" class="form-control" required>
             <option value="face_terminal">Face Recognition Terminal</option>
             <option value="door_controller">Door Access Controller</option>
             <option value="camera">IP Security Camera</option>
           </select>
+          <div class="field-error" id="devTypeInputError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Firmware Version (Optional)</label>
+          <label class="form-label" for="devFirmwareInput">Firmware Version (Optional)</label>
           <input type="text" id="devFirmwareInput" class="form-control" placeholder="V4.22.000_210915">
+          <div class="field-error" id="devFirmwareInputError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('registerDeviceModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Device</button>
+          <button type="submit" id="saveDeviceSubmitBtn" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Device</button>
         </div>
       </form>
     </div>
@@ -443,30 +512,33 @@
         <h3 class="modal-title">Edit Device Metadata</h3>
         <button class="modal-close" onclick="closeModal('editDeviceModal')">&times;</button>
       </div>
-      <form onsubmit="handleUpdateDevice(event)">
+      <form onsubmit="handleUpdateDevice(event)" novalidate>
         <input type="hidden" id="editDeviceId">
         <div class="form-group">
-          <label class="form-label">Device Name</label>
+          <label class="form-label" for="editDevName">Device Name</label>
           <input type="text" id="editDevName" class="form-control" required>
+          <div class="field-error" id="editDevNameError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Device Type</label>
+          <label class="form-label" for="editDevType">Device Type</label>
           <select id="editDevType" class="form-control" required>
             <option value="face_terminal">Face Recognition Terminal</option>
             <option value="door_controller">Door Access Controller</option>
             <option value="camera">IP Security Camera</option>
           </select>
+          <div class="field-error" id="editDevTypeError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Status</label>
+          <label class="form-label" for="editDevStatus">Status</label>
           <select id="editDevStatus" class="form-control">
             <option value="ONLINE">ONLINE</option>
             <option value="OFFLINE">OFFLINE</option>
           </select>
+          <div class="field-error" id="editDevStatusError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('editDeviceModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Update</button>
+          <button type="submit" id="updateDeviceSubmitBtn" class="btn btn-primary"><i class="fa-solid fa-check"></i> Update</button>
         </div>
       </form>
     </div>
@@ -479,18 +551,22 @@
         <h3 class="modal-title">Generate API Key</h3>
         <button class="modal-close" onclick="closeModal('createApiKeyModal')">&times;</button>
       </div>
-      <form onsubmit="handleCreateApiKey(event)">
+      <form onsubmit="handleCreateApiKey(event)" novalidate>
         <div class="form-group">
-          <label class="form-label">Key Description / Name</label>
+          <label class="form-label" for="apiKeyNameInput">Key Description / Name</label>
           <input type="text" id="apiKeyNameInput" class="form-control" placeholder="HRMS Integration Service" required>
+          <div class="field-error" id="apiKeyNameInputError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+          <div class="field-hint">Identify the app or service consuming this key</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Expiration Date (Optional)</label>
+          <label class="form-label" for="apiKeyExpInput">Expiration Date (Optional)</label>
           <input type="datetime-local" id="apiKeyExpInput" class="form-control">
+          <div class="field-error" id="apiKeyExpInputError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+          <div class="field-hint">Leave empty for a key that never expires</div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('createApiKeyModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Generate Key</button>
+          <button type="submit" id="createApiKeySubmitBtn" class="btn btn-primary"><i class="fa-solid fa-key"></i> Generate Key</button>
         </div>
       </form>
     </div>
@@ -509,7 +585,7 @@
       <div class="form-group">
         <div class="url-box">
           <input type="text" id="revealedKeySecret" class="url-input" readonly>
-          <button class="btn btn-primary btn-sm" onclick="copySecretKey()"><i class="fa-regular fa-copy"></i> Copy Key</button>
+          <button class="btn btn-primary btn-sm" id="copySecretKeyBtn" onclick="copySecretKey()"><i class="fa-regular fa-copy"></i> Copy Key</button>
         </div>
       </div>
       <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
@@ -525,10 +601,12 @@
         <h3 class="modal-title">Add Webhook Subscription</h3>
         <button class="modal-close" onclick="closeModal('createWebhookModal')">&times;</button>
       </div>
-      <form onsubmit="handleCreateWebhook(event)">
+      <form onsubmit="handleCreateWebhook(event)" novalidate>
         <div class="form-group">
-          <label class="form-label">Endpoint Target URL</label>
+          <label class="form-label" for="webhookUrlInput">Endpoint Target URL</label>
           <input type="url" id="webhookUrlInput" class="form-control" placeholder="https://api.yourhrms.com/webhooks/hikvision" required>
+          <div class="field-error" id="webhookUrlInputError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
+          <div class="field-hint">Must start with http:// or https:// and be publicly accessible</div>
         </div>
         <div class="form-group">
           <label class="form-label">Subscribed Event Types</label>
@@ -540,10 +618,11 @@
             <label><input type="checkbox" name="whEvent" value="MOTION"> MOTION</label>
             <label><input type="checkbox" name="whEvent" value="*"> All Events (*)</label>
           </div>
+          <div class="field-error" id="whEventsError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('createWebhookModal')">Cancel</button>
-          <button type="submit" class="btn btn-primary">Create Subscription</button>
+          <button type="submit" id="createWebhookSubmitBtn" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Create Subscription</button>
         </div>
       </form>
     </div>
@@ -578,10 +657,11 @@
           This action will permanently delete your organization account, all registered hardware devices, event logs, API keys, and active webhooks. <b>This cannot be undone.</b>
         </p>
       </div>
-      <form onsubmit="handleDeleteAccount(event)">
+      <form onsubmit="handleDeleteAccount(event)" novalidate>
         <div class="form-group">
-          <label class="form-label">To confirm, type <b>DELETE</b> below:</label>
+          <label class="form-label" for="deleteConfirmInput">To confirm, type <b>DELETE</b> below:</label>
           <input type="text" id="deleteConfirmInput" class="form-control" placeholder="DELETE" required autocomplete="off">
+          <div class="field-error" id="deleteConfirmInputError"><i class="fa-solid fa-circle-exclamation"></i> <span></span></div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
           <button type="button" class="btn btn-secondary" onclick="closeModal('deleteAccountModal')">Cancel</button>
