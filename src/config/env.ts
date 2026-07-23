@@ -34,13 +34,13 @@ const envSchema = z.object({
   ENFORCE_HTTPS: z.preprocess(parseBooleanEnv, z.boolean().default(false)),
   TRUST_PROXY: z.preprocess(
     (val) => {
-      if (val === undefined || val === '') return true;
-      const boolVal = parseBooleanEnv(val);
-      if (typeof boolVal === 'boolean') return boolVal;
+      if (val === undefined || val === '') return 1;
+      if (val === true || val === 'true' || val === '1') return 1;
+      if (val === false || val === 'false' || val === '0') return false;
       if (typeof val === 'string' && /^\d+$/.test(val.trim())) return Number(val);
       return val;
     },
-    z.union([z.boolean(), z.number(), z.string()]).default(true)
+    z.union([z.boolean(), z.number(), z.string()]).default(1)
   ),
   RATE_LIMIT_GLOBAL_MAX: z.coerce.number().default(1000),
   RATE_LIMIT_GLOBAL_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),

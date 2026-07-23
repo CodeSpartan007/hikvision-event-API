@@ -21,6 +21,7 @@ export const globalLimiter = rateLimit({
   max: env.RATE_LIMIT_GLOBAL_MAX,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: globalLimitMessage,
   handler: (req, res, _next, options) => {
     rateLimitMetrics.globalTriggers += 1;
@@ -33,6 +34,7 @@ export const loginLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     error: 'Too Many Requests',
     message: 'Too many login attempts from this IP, please try again after 15 minutes.',
@@ -44,6 +46,7 @@ export const webhookLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: webhookLimitMessage,
   handler: (req, res, _next, options) => {
     rateLimitMetrics.webhookTriggers += 1;
