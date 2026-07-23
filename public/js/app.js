@@ -15,12 +15,41 @@ let state = {
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   if (state.token) {
     showPortalView();
   } else {
     showAuthView();
   }
 });
+
+// Theme Management
+function initTheme() {
+  const savedTheme = localStorage.getItem('portalTheme') || 'dark';
+  setTheme(savedTheme);
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('portalTheme', theme);
+  const icon = document.getElementById('themeToggleIcon');
+  const text = document.getElementById('themeToggleText');
+  if (icon && text) {
+    if (theme === 'light') {
+      icon.className = 'fa-solid fa-moon';
+      text.textContent = 'Dark Mode';
+    } else {
+      icon.className = 'fa-solid fa-sun';
+      text.textContent = 'Light Mode';
+    }
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  setTheme(newTheme);
+}
 
 // Toast Notifications
 function showToast(message, type = 'success') {

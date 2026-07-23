@@ -22,8 +22,13 @@
       </div>
     </div>
 
-    <div class="user-profile" id="userProfileArea">
-      <!-- Populated via JavaScript -->
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <button class="btn btn-secondary btn-sm" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Light/Dark Theme">
+        <i class="fa-solid fa-sun" id="themeToggleIcon"></i> <span id="themeToggleText">Light Mode</span>
+      </button>
+      <div class="user-profile" id="userProfileArea">
+        <!-- Populated via JavaScript -->
+      </div>
     </div>
   </header>
 
