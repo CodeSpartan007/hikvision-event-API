@@ -1,4 +1,5 @@
 import rateLimit from 'express-rate-limit';
+import { env } from '../config/env.js';
 
 const globalLimitMessage = {
   error: 'Too Many Requests',
@@ -16,8 +17,8 @@ export const rateLimitMetrics = {
 };
 
 export const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300,
+  windowMs: env.RATE_LIMIT_GLOBAL_WINDOW_MS,
+  max: env.RATE_LIMIT_GLOBAL_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   message: globalLimitMessage,

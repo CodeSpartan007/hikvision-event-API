@@ -1,0 +1,31 @@
+name: Deploy to Cloud Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Server via SSH
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            cd ${{ secrets.SERVER_WORKDIR || '~/hikvision-event-API' }}
+            git pull origin main
+            if command -v podman-compose &> /dev/null; then
+              podman-compose up -d --build
+            elif command -v docker-compose &> /dev/null; then
+              docker-compose up -d --build
+            elif docker compose version &> /dev/null; then
+              docker compose up -d --build
+            else
+              echo "Error: No docker-compose or podman-compose tool found" && exit 1
+            fi

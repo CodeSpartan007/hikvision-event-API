@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import { env } from './src/config/env.js';
 import healthRouter from './src/routes/health.js';
 import webhookRouter from './src/routes/webhooks.js';
 import devicesRouter from './src/routes/devices.js';
@@ -15,6 +16,10 @@ import { errorHandler } from './src/middleware/errorHandler.js';
 import { setupSwagger } from './src/swagger.js';
 
 const app = express();
+
+if (env.TRUST_PROXY !== false) {
+  app.set('trust proxy', env.TRUST_PROXY);
+}
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');

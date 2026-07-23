@@ -32,6 +32,18 @@ const envSchema = z.object({
   ADMIN_PASSWORD: z.string().optional(),
   ALLOWED_HOSTS: z.string().default('localhost,127.0.0.1'),
   ENFORCE_HTTPS: z.preprocess(parseBooleanEnv, z.boolean().default(false)),
+  TRUST_PROXY: z.preprocess(
+    (val) => {
+      if (val === undefined || val === '') return true;
+      const boolVal = parseBooleanEnv(val);
+      if (typeof boolVal === 'boolean') return boolVal;
+      if (typeof val === 'string' && /^\d+$/.test(val.trim())) return Number(val);
+      return val;
+    },
+    z.union([z.boolean(), z.number(), z.string()]).default(true)
+  ),
+  RATE_LIMIT_GLOBAL_MAX: z.coerce.number().default(1000),
+  RATE_LIMIT_GLOBAL_WINDOW_MS: z.coerce.number().default(15 * 60 * 1000),
   RAW_PAYLOAD_RETENTION_DAYS: z.preprocess(
     (val) => {
       if (val === undefined || val === '') return undefined;
