@@ -17,10 +17,24 @@ const updateDeviceSchema = z.object({
   firmwareVersion: z.string().optional(),
 });
 
+function resolveTenantIdScope(req: Request, res: Response): string | null | undefined | false {
+  if (!req.user) {
+    res.status(401).json({ error: 'Unauthorized', message: 'Authentication required' });
+    return false;
+  }
+  if (req.user.role === 'SUPER_ADMIN') {
+    return undefined;
+  }
+  return req.user.tenantId || null;
+}
+
 export class DeviceController {
   public getDevices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
+      const tenantId = resolveTenantIdScope(req, res);
+      if (tenantId === false) {
+        return;
+      }
       const status = req.query.status ? String(req.query.status) : undefined;
       const type = req.query.type ? String(req.query.type) : undefined;
       const limit = req.query.limit ? Number(req.query.limit) : undefined;
@@ -35,7 +49,10 @@ export class DeviceController {
 
   public getDeviceById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
+      const tenantId = resolveTenantIdScope(req, res);
+      if (tenantId === false) {
+        return;
+      }
       const id = req.params.id as string;
       const device = await deviceService.getDeviceById(id, tenantId);
 
@@ -52,7 +69,10 @@ export class DeviceController {
 
   public createDevice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
+      const tenantId = resolveTenantIdScope(req, res);
+      if (tenantId === false) {
+        return;
+      }
       const deviceData = createDeviceSchema.parse(req.body);
 
       const existing = await deviceService.getDeviceById(deviceData.id);
@@ -70,7 +90,10 @@ export class DeviceController {
 
   public updateDevice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
+      const tenantId = resolveTenantIdScope(req, res);
+      if (tenantId === false) {
+        return;
+      }
       const id = req.params.id as string;
       const updateData = updateDeviceSchema.parse(req.body);
 
@@ -89,7 +112,10 @@ export class DeviceController {
 
   public deleteDevice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
+      const tenantId = resolveTenantIdScope(req, res);
+      if (tenantId === false) {
+        return;
+      }
       const id = req.params.id as string;
 
       const existing = await deviceService.getDeviceById(id, tenantId);

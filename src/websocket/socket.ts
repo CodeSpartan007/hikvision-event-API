@@ -101,6 +101,12 @@ export function initSocketServer(server: HttpServer): SocketIOServer {
           return;
         }
 
+        if (!user?.tenantId) {
+          logger.warn({ socketId: socket.id, room: targetRoom }, 'Unscoped socket subscription attempt rejected');
+          socket.emit('error', { message: 'Unauthorized: Tenant context required' });
+          return;
+        }
+
         if (targetRoom.startsWith('tenant:')) {
           const parts = targetRoom.split(':');
           const roomTenantId = parts[1];

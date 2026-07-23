@@ -13,10 +13,24 @@ const VALID_EVENT_TYPES = new Set([
   'UNKNOWN',
 ]);
 
+function resolveTenantIdScope(req: Request, res: Response): string | null | undefined | false {
+  if (!req.user) {
+    res.status(401).json({ error: 'Unauthorized', message: 'Authentication required' });
+    return false;
+  }
+  if (req.user.role === 'SUPER_ADMIN') {
+    return undefined;
+  }
+  return req.user.tenantId || null;
+}
+
 export class EventController {
   public getEvents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
+      const tenantId = resolveTenantIdScope(req, res);
+      if (tenantId === false) {
+        return;
+      }
 
       let limit: number | undefined = undefined;
       if (req.query.limit !== undefined) {
@@ -97,7 +111,10 @@ export class EventController {
 
   public getEventById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tenantId = req.user?.role === 'SUPER_ADMIN' ? undefined : req.user?.tenantId;
+      const tenantId = resolveTenantIdScope(req, res);
+      if (tenantId === false) {
+        return;
+      }
       const id = req.params.id as string;
       const event = await eventService.getEventById(id, tenantId);
 
