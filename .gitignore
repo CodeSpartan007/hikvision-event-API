@@ -53,6 +53,7 @@ coverage/
 # Markdown files: ignore all .md files except architecture and readme ones
 *.md
 **/*.md
+!MULTI_TENANT_PORTAL_PLAN.md
 !README.md
 !README.*.md
 !readme.md
@@ -65,6 +66,7 @@ coverage/
 !ARCHITECTURE.*.md
 !architecture.md
 !architecture.*.md
+!MULTI_TENANT_PORTAL_PLAN.md
 !**/ARCHITECTURE.md
 !**/ARCHITECTURE.*.md
 !**/architecture.md
