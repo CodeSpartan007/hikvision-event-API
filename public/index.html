@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Portal | Hikvision Event Telemetry API</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid => fa-shield-halved"></i>
+      </div>
+      <div>
+        <span class="brand-title">Hikvision Event API</span>
+        <span class="badge-tag">Developer Portal</span>
+      </div>
+    </div>
+
+    <div class="user-profile" id="userProfileArea">
+      <!-- Populated via JavaScript -->
+    </div>
+  </header>
+
+  <!-- Auth Wrapper (Shown when logged out) -->
+  <div id="authView" class="container auth-wrapper">
+    <div class="card">
+      <div class="card-header" style="justify-content: center; text-align: center; flex-direction: column;">
+        <h2 class="card-title" style="font-size: 1.5rem;"><i class="fa-solid fa-lock"></i> Developer Portal Login</h2>
+        <p class="card-subtitle">Manage multi-tenant Hikvision device ingestion, API keys & live telemetry</p>
+      </div>
+
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tabSelectLogin" onclick="switchAuthTab('login')">Login</div>
+        <div class="auth-tab" id="tabSelectRegister" onclick="switchAuthTab('register')">Register Organization</div>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="loginEmail" class="form-control" placeholder="admin@organization.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" onsubmit="handleRegister(event)" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Organization / HRMS Name</label>
+          <input type="text" id="regName" class="form-control" placeholder="Acme HRMS Ltd" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Work Email</label>
+          <input type="email" id="regEmail" class="form-control" placeholder="developer@acme.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password (Min 6 chars)</label>
+          <input type="password" id="regPassword" class="form-control" placeholder="••••••••" required minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-user-plus"></i> Create Account & Tenant Key</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Authenticated Portal View -->
+  <div id="portalView" style="display: none; flex-direction: column; flex: 1;">
+    
+    <!-- Tab Navigation Bar -->
+    <div class="nav-tabs-container">
+      <button class="tab-btn active" onclick="switchTab('overview')">
+        <i class="fa-solid fa-chart-line"></i> Dashboard Overview
+      </button>
+      <button class="tab-btn" onclick="switchTab('devices')">
+        <i class="fa-solid fa-microchip"></i> Device Inventory
+      </button>
+      <button class="tab-btn" onclick="switchTab('telemetry')">
+        <i class="fa-solid fa-bolt"></i> Real-Time Telemetry
+      </button>
+      <button class="tab-btn" onclick="switchTab('apikeys')">
+        <i class="fa-solid fa-key"></i> API Keys
+      </button>
+      <button class="tab-btn" onclick="switchTab('webhooks')">
+        <i class="fa-solid fa-satellite-dish"></i> Webhooks
+      </button>
+      <button class="tab-btn" onclick="switchTab('swagger')">
+        <i class="fa-solid fa-code"></i> API Documentation
+      </button>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="container">
+      
+      <!-- TAB 1: OVERVIEW -->
+      <section id="tab-overview" class="view-panel active">
+        <!-- Metric Stats Grid -->
+        <div class="grid-4">
+          <div class="stat-card">
+            <div class="stat-icon primary"><i class="fa-solid fa-server"></i></div>
+            <div>
+              <div class="stat-val" id="statTotalDevices">0</div>
+              <div class="stat-lbl">Registered Devices</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon success"><i class="fa-solid fa-wifi"></i></div>
+            <div>
+              <div class="stat-val" id="statOnlineDevices">0</div>
+              <div class="stat-lbl">Online Terminals</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon warning"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div>
+              <div class="stat-val" id="statOfflineDevices">0</div>
+              <div class="stat-lbl">Offline Terminals</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon cyan"><i class="fa-solid fa-database"></i></div>
+            <div>
+              <div class="stat-val" id="statTotalEvents">0</div>
+              <div class="stat-lbl">Events Processed</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zero-Touch Ingestion Setup Box -->
+        <div class="ingestion-hero card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title"><i class="fa-solid fa-wand-magic-sparkles" style="color: #a855f7;"></i> Zero-Touch Device Auto-Provisioning (Workflow B)</h3>
+              <p class="card-subtitle">Configure your Hikvision terminals to push events directly to your unique tenant webhook endpoint. Devices automatically register on their first HTTP push.</p>
+            </div>
+            <span class="badge-tag" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">Auto-Bind Active</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Your Dedicated Hikvision Ingestion Webhook URL</label>
+            <div class="url-box">
+              <i class="fa-solid fa-link" style="color: var(--accent-cyan);"></i>
+              <input type="text" id="ingestionUrlInput" class="url-input" readonly value="Loading URL...">
+              <button class="btn btn-primary btn-sm" onclick="copyIngestionUrl()"><i class="fa-regular fa-copy"></i> Copy Endpoint</button>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Setup Guide -->
+          <div class="setup-guide">
+            <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem;"><i class="fa-solid fa-list-check"></i> 3-Step Hikvision Terminal Configuration</h4>
+            <div class="setup-steps">
+              <div class="step-item">
+                <div class="step-num">1</div>
+                <div class="step-title">Access Hardware Interface</div>
+                <div class="step-desc">Log into your Hikvision Face Terminal, Door Controller, or Camera via web browser or iVMS-4200.</div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">2</div>
+                <div class="step-title">Configure Event Push</div>
+                <div class="step-desc">Navigate to <b>Configuration -> Network -> Advanced Settings -> HTTP Listening / Event HTTP Push</b>.</div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">3</div>
+                <div class="step-title">Paste Ingestion URL</div>
+                <div class="step-desc">Paste your dedicated Tenant Ingestion URL above. The 1st event push automatically binds the device to your account!</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity Table -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Telemetry Activity</h3>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('telemetry')">View Live Feed <i class="fa-solid fa-arrow-right"></i></button>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Device ID</th>
+                  <th>Event Type</th>
+                  <th>Employee ID / Name</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="overviewEventsTable">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading recent activity...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: DEVICE INVENTORY -->
+      <section id="tab-devices" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title"><i class="fa-solid fa-microchip"></i> Auto-Provisioned Hardware Devices</h3>
+              <p class="card-subtitle">Manage terminals, face recognition units, and cameras bound to your tenant</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+              <select id="deviceStatusFilter" class="form-control" style="width: auto;" onchange="loadDevices()">
+                <option value="">All Statuses</option>
+                <option value="ONLINE">ONLINE</option>
+                <option value="OFFLINE">OFFLINE</option>
+              </select>
+              <button class="btn btn-primary" onclick="openModal('registerDeviceModal')"><i class="fa-solid fa-plus"></i> Manual Register</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Device Serial / ID</th>
+                  <th>Device Name</th>
+                  <th>Hardware Type</th>
+                  <th>Status</th>
+                  <th>Firmware Version</th>
+                  <th>Last Event At</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="devicesTableBody">
+                <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading devices...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: REAL-TIME TELEMETRY LIVE FEED -->
+      <section id="tab-telemetry" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title"><i class="fa-solid fa-bolt" style="color: var(--warning);"></i> Live Stream Telemetry Feed</h3>
+              <p class="card-subtitle">Real-time event streaming via Socket.IO push connection</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <button id="pauseStreamBtn" class="btn btn-secondary btn-sm" onclick="togglePauseStream()"><i class="fa-solid fa-pause"></i> Pause Stream</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearTelemetryFeed()"><i class="fa-solid fa-trash"></i> Clear Feed</button>
+            </div>
+          </div>
+
+          <!-- Socket status bar & Filter -->
+          <div class="stream-bar">
+            <div class="socket-status">
+              <span id="socketDot" class="status-dot-pulse"></span>
+              <span id="socketText">Connected to Real-Time Room</span>
+              <span class="badge-tag" id="eventCounterTag">0 Events Streamed</span>
+            </div>
+            <div>
+              <select id="eventTypeFilter" class="form-control" style="width: 200px; padding: 0.4rem 0.75rem; font-size: 0.85rem;">
+                <option value="ALL">All Event Types</option>
+                <option value="CHECK_IN">CHECK_IN</option>
+                <option value="CHECK_OUT">CHECK_OUT</option>
+                <option value="DOOR_OPEN">DOOR_OPEN</option>
+                <option value="DOOR_FORCED">DOOR_FORCED</option>
+                <option value="MOTION">MOTION</option>
+                <option value="HEARTBEAT">HEARTBEAT</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Stream List -->
+          <div id="telemetryStreamList" class="stream-list">
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+              <i class="fa-solid fa-satellite-dish" style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--border-color);"></i>
+              <p>Listening for real-time Hikvision event telemetry...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: API KEYS -->
+      <section id="tab-apikeys" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title"><i class="fa-solid fa-key"></i> Tenant API Key Management</h3>
+              <p class="card-subtitle">Generate programmatic access credentials for your HRMS backends</p>
+            </div>
+            <button class="btn btn-primary" onclick="openModal('createApiKeyModal')"><i class="fa-solid fa-plus"></i> Generate New API Key</button>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Key Name</th>
+                  <th>Key ID</th>
+                  <th>Status</th>
+                  <th>Created Date</th>
+                  <th>Expiration Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="apiKeysTableBody">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading API keys...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: WEBHOOKS -->
+      <section id="tab-webhooks" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title"><i class="fa-solid fa-satellite-dish"></i> Outbound Webhook Subscriptions</h3>
+              <p class="card-subtitle">Relay processed Hikvision events directly to your HRMS webhook listener</p>
+            </div>
+            <button class="btn btn-primary" onclick="openModal('createWebhookModal')"><i class="fa-solid fa-plus"></i> Add Webhook Subscription</button>
+          </div>
+
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Endpoint URL</th>
+                  <th>Subscribed Events</th>
+                  <th>Status</th>
+                  <th>Created At</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="webhooksTableBody">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading webhooks...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: SWAGGER / API DOCS -->
+      <section id="tab-swagger" class="view-panel">
+        <div class="card" style="padding: 0; overflow: hidden; height: 800px;">
+          <iframe src="/api-docs" style="width: 100%; height: 100%; border: none;"></iframe>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODALS -->
+
+  <!-- Modal: Manual Register Device -->
+  <div id="registerDeviceModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Register Device</h3>
+        <button class="modal-close" onclick="closeModal('registerDeviceModal')">&times;</button>
+      </div>
+      <form onsubmit="handleCreateDevice(event)">
+        <div class="form-group">
+          <label class="form-label">Device Serial Number / ID</label>
+          <input type="text" id="devIdInput" class="form-control" placeholder="DS-K1T671M-10294" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Device Name</label>
+          <input type="text" id="devNameInput" class="form-control" placeholder="Main Lobby Turnstile" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Device Type</label>
+          <select id="devTypeInput" class="form-control" required>
+            <option value="face_terminal">Face Recognition Terminal</option>
+            <option value="door_controller">Door Access Controller</option>
+            <option value="camera">IP Security Camera</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Firmware Version (Optional)</label>
+          <input type="text" id="devFirmwareInput" class="form-control" placeholder="V4.22.000_210915">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('registerDeviceModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Device</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Device -->
+  <div id="editDeviceModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Device Metadata</h3>
+        <button class="modal-close" onclick="closeModal('editDeviceModal')">&times;</button>
+      </div>
+      <form onsubmit="handleUpdateDevice(event)">
+        <input type="hidden" id="editDeviceId">
+        <div class="form-group">
+          <label class="form-label">Device Name</label>
+          <input type="text" id="editDevName" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Device Type</label>
+          <select id="editDevType" class="form-control" required>
+            <option value="face_terminal">Face Recognition Terminal</option>
+            <option value="door_controller">Door Access Controller</option>
+            <option value="camera">IP Security Camera</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select id="editDevStatus" class="form-control">
+            <option value="ONLINE">ONLINE</option>
+            <option value="OFFLINE">OFFLINE</option>
+          </select>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('editDeviceModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Create API Key -->
+  <div id="createApiKeyModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Generate API Key</h3>
+        <button class="modal-close" onclick="closeModal('createApiKeyModal')">&times;</button>
+      </div>
+      <form onsubmit="handleCreateApiKey(event)">
+        <div class="form-group">
+          <label class="form-label">Key Description / Name</label>
+          <input type="text" id="apiKeyNameInput" class="form-control" placeholder="HRMS Integration Service" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expiration Date (Optional)</label>
+          <input type="datetime-local" id="apiKeyExpInput" class="form-control">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('createApiKeyModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Generate Key</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Reveal Secret Key -->
+  <div id="revealKeyModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fa-solid fa-triangle-exclamation" style="color: var(--warning);"></i> Store Your Secret API Key</h3>
+        <button class="modal-close" onclick="closeModal('revealKeyModal')">&times;</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Please store this key securely now. For security reasons, <b>it will never be displayed again</b>.
+      </p>
+      <div class="form-group">
+        <div class="url-box">
+          <input type="text" id="revealedKeySecret" class="url-input" readonly>
+          <button class="btn btn-primary btn-sm" onclick="copySecretKey()"><i class="fa-regular fa-copy"></i> Copy Key</button>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+        <button class="btn btn-secondary" onclick="closeModal('revealKeyModal')">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Create Webhook Subscription -->
+  <div id="createWebhookModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Add Webhook Subscription</h3>
+        <button class="modal-close" onclick="closeModal('createWebhookModal')">&times;</button>
+      </div>
+      <form onsubmit="handleCreateWebhook(event)">
+        <div class="form-group">
+          <label class="form-label">Endpoint Target URL</label>
+          <input type="url" id="webhookUrlInput" class="form-control" placeholder="https://api.yourhrms.com/webhooks/hikvision" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subscribed Event Types</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.4rem;">
+            <label><input type="checkbox" name="whEvent" value="CHECK_IN" checked> CHECK_IN</label>
+            <label><input type="checkbox" name="whEvent" value="CHECK_OUT" checked> CHECK_OUT</label>
+            <label><input type="checkbox" name="whEvent" value="DOOR_OPEN"> DOOR_OPEN</label>
+            <label><input type="checkbox" name="whEvent" value="DOOR_FORCED"> DOOR_FORCED</label>
+            <label><input type="checkbox" name="whEvent" value="MOTION"> MOTION</label>
+            <label><input type="checkbox" name="whEvent" value="*"> All Events (*)</label>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('createWebhookModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Subscription</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Event Raw JSON Inspector -->
+  <div id="jsonInspectorModal" class="modal-backdrop">
+    <div class="modal" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fa-solid fa-code"></i> Telemetry Raw Event Payload</h3>
+        <button class="modal-close" onclick="closeModal('jsonInspectorModal')">&times;</button>
+      </div>
+      <pre id="jsonViewerContent">Loading...</pre>
+      <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+        <button class="btn btn-secondary" onclick="closeModal('jsonInspectorModal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

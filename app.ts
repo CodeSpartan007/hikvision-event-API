@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express from 'express';
 import helmet from 'helmet';
 import { env } from './src/config/env.js';
@@ -40,6 +41,12 @@ app.use(globalLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.text({ type: ['*/xml', 'application/xml', 'text/xml'], limit: '10mb' }));
+
+app.use(express.static('public'));
+
+app.get(['/portal', '/dashboard'], (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
+});
 
 setupSwagger(app);
 
