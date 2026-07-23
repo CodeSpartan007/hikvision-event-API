@@ -16,12 +16,21 @@ let state = {
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  checkResetTokenInUrl();
   if (state.token) {
     showPortalView();
   } else {
     showAuthView();
   }
 });
+
+function checkResetTokenInUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const resetToken = urlParams.get('resetToken') || urlParams.get('token');
+  if (resetToken) {
+    showAuthSubView('reset', null, resetToken);
+  }
+}
 
 // Global listeners for profile dropdown
 document.addEventListener('click', (e) => {
@@ -166,22 +175,106 @@ function toggleProfileMenu(event) {
   }
 }
 
-function switchAuthTab(type) {
+function showAuthSubView(subView, event, token) {
+  if (event) event.preventDefault();
+
+  const loginForm = document.getElementById('loginForm');
+  const regForm = document.getElementById('registerForm');
+  const forgotForm = document.getElementById('forgotForm');
+  const resetForm = document.getElementById('resetForm');
+  const authTabsHeader = document.getElementById('authTabsHeader');
+
+  if (loginForm) loginForm.style.display = 'none';
+  if (regForm) regForm.style.display = 'none';
+  if (forgotForm) forgotForm.style.display = 'none';
+  if (resetForm) resetForm.style.display = 'none';
+
+  if (subView === 'forgot') {
+    if (authTabsHeader) authTabsHeader.style.display = 'none';
+    if (forgotForm) forgotForm.style.display = 'block';
+  } else if (subView === 'reset') {
+    if (authTabsHeader) authTabsHeader.style.display = 'none';
+    if (resetForm) resetForm.style.display = 'block';
+    if (token) {
+      const tokenInput = document.getElementById('resetTokenInput');
+      if (tokenInput) tokenInput.value = token;
+    }
+  }
+}
+
+function switchAuthTab(type, event) {
+  if (event) event.preventDefault();
   const loginTab = document.getElementById('tabSelectLogin');
   const regTab = document.getElementById('tabSelectRegister');
   const loginForm = document.getElementById('loginForm');
   const regForm = document.getElementById('registerForm');
+  const forgotForm = document.getElementById('forgotForm');
+  const resetForm = document.getElementById('resetForm');
+  const authTabsHeader = document.getElementById('authTabsHeader');
+
+  if (authTabsHeader) authTabsHeader.style.display = 'flex';
+  if (forgotForm) forgotForm.style.display = 'none';
+  if (resetForm) resetForm.style.display = 'none';
 
   if (type === 'login') {
-    loginTab.classList.add('active');
-    regTab.classList.remove('active');
-    loginForm.style.display = 'block';
-    regForm.style.display = 'none';
+    if (loginTab) loginTab.classList.add('active');
+    if (regTab) regTab.classList.remove('active');
+    if (loginForm) loginForm.style.display = 'block';
+    if (regForm) regForm.style.display = 'none';
   } else {
-    regTab.classList.add('active');
-    loginTab.classList.remove('active');
-    regForm.style.display = 'block';
-    loginForm.style.display = 'none';
+    if (regTab) regTab.classList.add('active');
+    if (loginTab) loginTab.classList.remove('active');
+    if (regForm) regForm.style.display = 'block';
+    if (loginForm) loginForm.style.display = 'none';
+  }
+}
+
+async function handleForgotPassword(e) {
+  e.preventDefault();
+  const email = document.getElementById('forgotEmail').value;
+
+  try {
+    const data = await apiFetch('/api/tenant/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+
+    if (data && data.message) {
+      showToast(data.message, 'success');
+      document.getElementById('forgotEmail').value = '';
+      setTimeout(() => switchAuthTab('login'), 3000);
+    }
+  } catch (err) {
+    // Handled by apiFetch toast
+  }
+}
+
+async function handleResetPassword(e) {
+  e.preventDefault();
+  const token = document.getElementById('resetTokenInput').value;
+  const newPassword = document.getElementById('resetNewPassword').value;
+  const confirmPassword = document.getElementById('resetConfirmPassword').value;
+
+  if (newPassword !== confirmPassword) {
+    showToast('Passwords do not match', 'error');
+    return;
+  }
+
+  try {
+    const data = await apiFetch('/api/tenant/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword })
+    });
+
+    if (data && data.message) {
+      showToast(data.message, 'success');
+      document.getElementById('resetNewPassword').value = '';
+      document.getElementById('resetConfirmPassword').value = '';
+      window.history.replaceState({}, document.title, window.location.pathname);
+      switchAuthTab('login');
+    }
+  } catch (err) {
+    // Handled by apiFetch toast
   }
 }
 

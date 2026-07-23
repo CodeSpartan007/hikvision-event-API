@@ -57,6 +57,9 @@ const envSchema = z.object({
   MAX_FUTURE_SKEW_SECONDS: z.coerce.number().default(300),
   MAX_PAST_SKEW_SECONDS: z.coerce.number().default(86400),
   CLOCK_SKEW_POLICY: z.enum(['normalize', 'reject', 'accept']).default('normalize'),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('onboarding@resend.dev'),
+  APP_BASE_URL: z.string().optional(),
 });
 
 type EnvConfig = z.infer<typeof envSchema>;

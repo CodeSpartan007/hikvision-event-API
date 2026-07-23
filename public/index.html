@@ -43,7 +43,7 @@
   <!-- Auth Wrapper (Shown when logged out) -->
   <div id="authView" class="container auth-wrapper">
     <div class="card">
-      <div class="auth-tabs">
+      <div class="auth-tabs" id="authTabsHeader">
         <div class="auth-tab active" id="tabSelectLogin" onclick="switchAuthTab('login')">Login</div>
         <div class="auth-tab" id="tabSelectRegister" onclick="switchAuthTab('register')">Register</div>
       </div>
@@ -55,7 +55,10 @@
           <input type="email" id="loginEmail" class="form-control" placeholder="admin@organization.com" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Password</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <label class="form-label" style="margin-bottom: 0;">Password</label>
+            <a href="#" onclick="showAuthSubView('forgot', event)" style="font-size: 0.8rem; color: var(--accent); text-decoration: none;">Forgot Password?</a>
+          </div>
           <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
@@ -76,6 +79,43 @@
           <input type="password" id="regPassword" class="form-control" placeholder="••••••••" required minlength="6">
         </div>
         <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-user-plus"></i> Sign Up</button>
+      </form>
+
+      <!-- Forgot Password Form -->
+      <form id="forgotForm" onsubmit="handleForgotPassword(event)" style="display: none;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);"><i class="fa-solid fa-lock-open" style="color: var(--accent);"></i> Forgot Password</h3>
+        <p style="margin-bottom: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+          Enter your account email address below and we'll send you instructions to reset your password.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="forgotEmail" class="form-control" placeholder="admin@organization.com" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;"><i class="fa-solid fa-paper-plane"></i> Send Reset Link</button>
+        <div style="text-align: center; margin-top: 0.75rem;">
+          <a href="#" onclick="switchAuthTab('login', event)" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Back to Login</a>
+        </div>
+      </form>
+
+      <!-- Reset Password Form (Triggered via email token) -->
+      <form id="resetForm" onsubmit="handleResetPassword(event)" style="display: none;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);"><i class="fa-solid fa-key" style="color: var(--accent);"></i> Reset Your Password</h3>
+        <p style="margin-bottom: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+          Enter and confirm your new password below.
+        </p>
+        <input type="hidden" id="resetTokenInput">
+        <div class="form-group">
+          <label class="form-label">New Password (Min 6 chars)</label>
+          <input type="password" id="resetNewPassword" class="form-control" placeholder="••••••••" required minlength="6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" id="resetConfirmPassword" class="form-control" placeholder="••••••••" required minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;"><i class="fa-solid fa-check"></i> Update Password</button>
+        <div style="text-align: center; margin-top: 0.75rem;">
+          <a href="#" onclick="switchAuthTab('login', event)" style="font-size: 0.85rem; color: var(--text-muted); text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Back to Login</a>
+        </div>
       </form>
     </div>
   </div>

@@ -358,6 +358,87 @@ Lightweight, high-performance microservice for receiving, parsing, storing, and 
         },
       },
     },
+    '/api/tenant/forgot-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Request password reset email',
+        description: 'Sends a password reset email via Resend with a secure 1-hour expiration link.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  email: { type: 'string', example: 'developer@acme.com' },
+                },
+                required: ['email'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Instructions sent successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string', example: 'If an account with that email exists, password reset instructions have been sent.' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/tenant/reset-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Reset password using token',
+        description: 'Updates tenant user password when supplied with a valid, non-expired reset token.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  token: { type: 'string', example: 'd3b07384d113edec49eaa6238ad5ff00' },
+                  newPassword: { type: 'string', example: 'newSecretPass123' },
+                },
+                required: ['token', 'newPassword'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Password reset successful',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string', example: 'Password updated successfully. You may now log in with your new password.' },
+                  },
+                },
+              },
+            },
+          },
+          '400': {
+            description: 'Invalid or expired token',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/webhooks/hikvision': {
       post: {
         tags: ['Webhooks Ingestion'],
