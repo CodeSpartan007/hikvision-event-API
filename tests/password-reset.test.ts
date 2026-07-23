@@ -20,12 +20,18 @@ describe('Password Reset with Resend Integration Tests', () => {
     const port = (server.address() as AddressInfo).port;
     baseUrl = `http://127.0.0.1:${port}`;
 
+    await prisma.devices.deleteMany({
+      where: { id: 'DEV-DELETE-TEST' },
+    });
     await prisma.tenants.deleteMany({
       where: { email: testEmail },
     });
   });
 
   after(async () => {
+    await prisma.devices.deleteMany({
+      where: { id: 'DEV-DELETE-TEST' },
+    });
     await prisma.tenants.deleteMany({
       where: { email: testEmail },
     });

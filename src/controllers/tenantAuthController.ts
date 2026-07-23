@@ -141,12 +141,8 @@ export class TenantAuthController {
           },
         });
 
-        const protocol = req.protocol || 'http';
-        let host = req.headers.host || 'hikvision-events.duckdns.org';
-        if (env.APP_BASE_URL) {
-          host = env.APP_BASE_URL.replace(/^https?:\/\//, '');
-        }
-        const resetLink = `${protocol}://${host}/?resetToken=${rawToken}`;
+        const baseUrl = (env.APP_BASE_URL || 'https://hikvision-events.duckdns.org').replace(/\/+$/, '');
+        const resetLink = `${baseUrl}/?resetToken=${rawToken}`;
 
         await emailService.sendPasswordResetEmail(email, resetLink, tenant.name);
 

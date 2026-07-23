@@ -23,6 +23,33 @@ describe('Phase 5: Verification & End-to-End Tests', () => {
 
   let tenantAEventId: string;
 
+  const cleanUpPhase5Tenants = async () => {
+    const testEmails = ['tenanta_phase5@example.com', 'tenantb_phase5@example.com'];
+    const testTenants = await prisma.tenants.findMany({
+      where: { email: { in: testEmails } },
+      select: { id: true },
+    });
+    const tenantIds = testTenants.map((t) => t.id);
+
+    if (tenantIds.length > 0) {
+      await prisma.apiKeys.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await prisma.webhookSubscriptions.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await prisma.auditLogs.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await prisma.pendingWebhookDeliveries.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await prisma.events.deleteMany({ where: { tenantId: { in: tenantIds } } });
+    }
+
+    await prisma.events.deleteMany({
+      where: { deviceId: { in: ['DEV-TEST-A1', 'DEV-TEST-B1'] } },
+    });
+    await prisma.devices.deleteMany({
+      where: { id: { in: ['DEV-TEST-A1', 'DEV-TEST-B1'] } },
+    });
+    await prisma.tenants.deleteMany({
+      where: { email: { in: testEmails } },
+    });
+  };
+
   before(async () => {
     server = http.createServer(app);
     initSocketServer(server);
@@ -32,28 +59,11 @@ describe('Phase 5: Verification & End-to-End Tests', () => {
     const port = (server.address() as AddressInfo).port;
     baseUrl = `http://127.0.0.1:${port}`;
 
-    // Clean up previous test artifacts if any
-    await prisma.events.deleteMany({
-      where: { deviceId: { in: ['DEV-TEST-A1', 'DEV-TEST-B1'] } },
-    });
-    await prisma.devices.deleteMany({
-      where: { id: { in: ['DEV-TEST-A1', 'DEV-TEST-B1'] } },
-    });
-    await prisma.tenants.deleteMany({
-      where: { email: { in: ['tenanta_phase5@example.com', 'tenantb_phase5@example.com'] } },
-    });
+    await cleanUpPhase5Tenants();
   });
 
   after(async () => {
-    await prisma.events.deleteMany({
-      where: { deviceId: { in: ['DEV-TEST-A1', 'DEV-TEST-B1'] } },
-    });
-    await prisma.devices.deleteMany({
-      where: { id: { in: ['DEV-TEST-A1', 'DEV-TEST-B1'] } },
-    });
-    await prisma.tenants.deleteMany({
-      where: { email: { in: ['tenanta_phase5@example.com', 'tenantb_phase5@example.com'] } },
-    });
+    await cleanUpPhase5Tenants();
     await prisma.$disconnect();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
@@ -160,19 +170,20 @@ describe('Phase 5: Verification & End-to-End Tests', () => {
     });
     assert.strictEqual(webhookRes.status, 200, 'Webhook receiver should acknowledge 200 OK');
 
-    await new Promise((r) => setTimeout(r, 400));
+    let auditLog = null;
+    for (let i = 0; i < 10; i++) {
+      auditLog = await prisma.auditLogs.findFirst({
+        where: {
+          action: 'UNAUTHORIZED_DEVICE_TENANT_MISMATCH',
+          tenantId: tenantBId,
+        },
+      });
+      if (auditLog) break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
 
-    // Verify ownership of DEV-TEST-A1 was NOT hijacked by Tenant B
     const device = await prisma.devices.findUnique({ where: { id: 'DEV-TEST-A1' } });
     assert.strictEqual(device?.tenantId, tenantAId, 'DEV-TEST-A1 tenantId must remain Tenant A');
-
-    // Verify UNAUTHORIZED_DEVICE_TENANT_MISMATCH audit log entry
-    const auditLog = await prisma.auditLogs.findFirst({
-      where: {
-        action: 'UNAUTHORIZED_DEVICE_TENANT_MISMATCH',
-        tenantId: tenantBId,
-      },
-    });
     assert.ok(auditLog, 'UNAUTHORIZED_DEVICE_TENANT_MISMATCH audit log must be created');
     assert.ok(auditLog.details.includes('DEV-TEST-A1'), 'Audit log details should mention DEV-TEST-A1');
   });
