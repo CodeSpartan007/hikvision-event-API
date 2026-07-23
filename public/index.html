@@ -18,7 +18,6 @@
       </div>
       <div>
         <span class="brand-title">Hikvision Event API</span>
-        <span class="badge-tag">Developer Portal</span>
       </div>
     </div>
 
@@ -36,7 +35,7 @@
   <div id="authView" class="container auth-wrapper">
     <div class="card">
       <div class="card-header" style="justify-content: center; text-align: center; flex-direction: column;">
-        <h2 class="card-title" style="font-size: 1.5rem;"><i class="fa-solid fa-lock"></i> Developer Portal Login</h2>
+        <h2 class="card-title" style="font-size: 1.5rem;"><i class="fa-solid fa-lock"></i> Portal Login</h2>
         <p class="card-subtitle">Manage multi-tenant Hikvision device ingestion, API keys & live telemetry</p>
       </div>
 
@@ -86,7 +85,7 @@
         <i class="fa-solid fa-chart-line"></i> Dashboard Overview
       </button>
       <button class="tab-btn" onclick="switchTab('devices')">
-        <i class="fa-solid fa-microchip"></i> Device Inventory
+        <i class="fa-solid fa-microchip"></i> Devices
       </button>
       <button class="tab-btn" onclick="switchTab('telemetry')">
         <i class="fa-solid fa-bolt"></i> Real-Time Telemetry
@@ -142,13 +141,9 @@
           </div>
         </div>
 
-        <!-- Zero-Touch Ingestion Setup Box -->
+        <!-- Ingestion Setup Box -->
         <div class="ingestion-hero card">
           <div class="card-header">
-            <div>
-              <h3 class="card-title"><i class="fa-solid fa-wand-magic-sparkles" style="color: #a855f7;"></i> Zero-Touch Device Auto-Provisioning (Workflow B)</h3>
-              <p class="card-subtitle">Configure your Hikvision terminals to push events directly to your unique tenant webhook endpoint. Devices automatically register on their first HTTP push.</p>
-            </div>
             <span class="badge-tag" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">Auto-Bind Active</span>
           </div>
 
@@ -215,7 +210,6 @@
           <div class="card-header">
             <div>
               <h3 class="card-title"><i class="fa-solid fa-microchip"></i> Auto-Provisioned Hardware Devices</h3>
-              <p class="card-subtitle">Manage terminals, face recognition units, and cameras bound to your tenant</p>
             </div>
             <div style="display: flex; gap: 0.75rem;">
               <select id="deviceStatusFilter" class="form-control" style="width: auto;" onchange="loadDevices()">
@@ -254,7 +248,6 @@
           <div class="card-header">
             <div>
               <h3 class="card-title"><i class="fa-solid fa-bolt" style="color: var(--warning);"></i> Live Stream Telemetry Feed</h3>
-              <p class="card-subtitle">Real-time event streaming via Socket.IO push connection</p>
             </div>
             <div style="display: flex; gap: 0.75rem; align-items: center;">
               <button id="pauseStreamBtn" class="btn btn-secondary btn-sm" onclick="togglePauseStream()"><i class="fa-solid fa-pause"></i> Pause Stream</button>
@@ -298,7 +291,6 @@
           <div class="card-header">
             <div>
               <h3 class="card-title"><i class="fa-solid fa-key"></i> Tenant API Key Management</h3>
-              <p class="card-subtitle">Generate programmatic access credentials for your HRMS backends</p>
             </div>
             <button class="btn btn-primary" onclick="openModal('createApiKeyModal')"><i class="fa-solid fa-plus"></i> Generate New API Key</button>
           </div>
@@ -329,7 +321,6 @@
           <div class="card-header">
             <div>
               <h3 class="card-title"><i class="fa-solid fa-satellite-dish"></i> Outbound Webhook Subscriptions</h3>
-              <p class="card-subtitle">Relay processed Hikvision events directly to your HRMS webhook listener</p>
             </div>
             <button class="btn btn-primary" onclick="openModal('createWebhookModal')"><i class="fa-solid fa-plus"></i> Add Webhook Subscription</button>
           </div>

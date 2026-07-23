@@ -218,10 +218,13 @@ function switchTab(tabId) {
 async function loadTenantProfile() {
   try {
     const data = await apiFetch('/api/tenant/me');
-    if (data) {
-      state.ingestionUrl = data.ingestionUrl;
+    if (data && data.ingestionUrl) {
+      let url = data.ingestionUrl
+        .replace(/localhost(:\d+)?/g, 'hikvision-events.duckdns.org')
+        .replace(/127\.0\.0\.1(:\d+)?/g, 'hikvision-events.duckdns.org');
+      state.ingestionUrl = url;
       const input = document.getElementById('ingestionUrlInput');
-      if (input) input.value = data.ingestionUrl;
+      if (input) input.value = url;
     }
   } catch (err) {}
 }

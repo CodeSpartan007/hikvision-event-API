@@ -138,7 +138,10 @@ export class TenantAuthController {
       }
 
       const protocol = req.protocol || 'http';
-      const host = req.headers.host || 'localhost:3000';
+      let host = req.headers.host || 'hikvision-events.duckdns.org';
+      if (host.includes('localhost') || host.includes('127.0.0.1')) {
+        host = 'hikvision-events.duckdns.org';
+      }
       const ingestionUrl = `${protocol}://${host}/api/webhooks/hikvision?tenantKey=${tenant.tenantKey}`;
 
       res.status(200).json({
