@@ -18,7 +18,11 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           script: |
-            cd ${{ secrets.SERVER_WORKDIR || '~/hikvision-event-API' }}
+            WORKDIR="${{ secrets.SERVER_WORKDIR }}"
+            if [ -z "$WORKDIR" ]; then
+              WORKDIR="$HOME/hikvision-event-API"
+            fi
+            cd "$WORKDIR"
             git pull origin main
             if command -v podman-compose &> /dev/null; then
               podman-compose up -d --build
