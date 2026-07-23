@@ -6,12 +6,13 @@ COPY package*.json ./
 COPY tsconfig.json ./
 COPY src/database/schema.prisma ./src/database/
 
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 
 RUN npx prisma generate --schema=./src/database/schema.prisma
 RUN npm run build
+RUN npm prune --omit=dev
 
 FROM node:22-alpine AS runner
 
@@ -20,12 +21,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY package*.json ./
-RUN npm ci --only=production
-
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/src/database/schema.prisma ./src/database/schema.prisma
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh

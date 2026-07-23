@@ -3,7 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Developer Portal | Hikvision Event Telemetry API</title>
+  <title>Hikvision Event Interface</title>
+  
+  <!-- Favicons & Web Manifest -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="/Hikvision_ico.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="/css/style.css">
   <script src="/socket.io/socket.io.js"></script>
@@ -14,10 +23,10 @@
   <header class="navbar">
     <div class="brand">
       <div class="brand-icon">
-        <i class="fa-solid fa-shield-halved"></i>
+        <img src="/Hikvision_ico.svg" alt="Hikvision Icon" class="brand-logo-img">
       </div>
       <div>
-        <span class="brand-title">Hikvision Event API</span>
+        <span class="brand-title">Hikvision Event Interface</span>
       </div>
     </div>
 
@@ -34,14 +43,9 @@
   <!-- Auth Wrapper (Shown when logged out) -->
   <div id="authView" class="container auth-wrapper">
     <div class="card">
-      <div class="card-header" style="justify-content: center; text-align: center; flex-direction: column;">
-        <h2 class="card-title" style="font-size: 1.5rem;"><i class="fa-solid fa-lock"></i> Portal Login</h2>
-        <p class="card-subtitle">Manage multi-tenant Hikvision device ingestion, API keys & live telemetry</p>
-      </div>
-
       <div class="auth-tabs">
         <div class="auth-tab active" id="tabSelectLogin" onclick="switchAuthTab('login')">Login</div>
-        <div class="auth-tab" id="tabSelectRegister" onclick="switchAuthTab('register')">Register Organization</div>
+        <div class="auth-tab" id="tabSelectRegister" onclick="switchAuthTab('register')">Register</div>
       </div>
 
       <!-- Login Form -->
@@ -60,8 +64,8 @@
       <!-- Register Form -->
       <form id="registerForm" onsubmit="handleRegister(event)" style="display: none;">
         <div class="form-group">
-          <label class="form-label">Organization / HRMS Name</label>
-          <input type="text" id="regName" class="form-control" placeholder="Acme HRMS Ltd" required>
+          <label class="form-label">Organization</label>
+          <input type="text" id="regName" class="form-control" placeholder="Acme Ltd" required>
         </div>
         <div class="form-group">
           <label class="form-label">Work Email</label>
@@ -71,7 +75,7 @@
           <label class="form-label">Password (Min 6 chars)</label>
           <input type="password" id="regPassword" class="form-control" placeholder="••••••••" required minlength="6">
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-user-plus"></i> Create Account & Tenant Key</button>
+        <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-user-plus"></i> Sign Up</button>
       </form>
     </div>
   </div>
@@ -82,7 +86,7 @@
     <!-- Tab Navigation Bar -->
     <div class="nav-tabs-container">
       <button class="tab-btn active" onclick="switchTab('overview')">
-        <i class="fa-solid fa-chart-line"></i> Dashboard Overview
+        <i class="fa-solid fa-chart-line"></i> Dashboard
       </button>
       <button class="tab-btn" onclick="switchTab('devices')">
         <i class="fa-solid fa-microchip"></i> Devices
@@ -97,7 +101,7 @@
         <i class="fa-solid fa-satellite-dish"></i> Webhooks
       </button>
       <button class="tab-btn" onclick="switchTab('swagger')">
-        <i class="fa-solid fa-code"></i> API Documentation
+        <i class="fa-solid fa-code"></i> API Docs
       </button>
     </div>
 

@@ -23,6 +23,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Global listeners for profile dropdown
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('profileDropdownWindow');
+  const btn = document.getElementById('profileIconBtn');
+  if (dropdown && dropdown.classList.contains('show')) {
+    if (!dropdown.contains(e.target) && (!btn || !btn.contains(e.target))) {
+      dropdown.classList.remove('show');
+    }
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const dropdown = document.getElementById('profileDropdownWindow');
+    if (dropdown && dropdown.classList.contains('show')) {
+      dropdown.classList.remove('show');
+    }
+  }
+});
+
 // Theme Management
 function initTheme() {
   const savedTheme = localStorage.getItem('portalTheme') || 'dark';
@@ -100,22 +120,50 @@ function showPortalView() {
   document.getElementById('authView').style.display = 'none';
   document.getElementById('portalView').style.display = 'flex';
   
-  // Render user profile pill
-  const userArea = document.getElementById('userProfileArea');
-  const name = state.tenant ? state.tenant.name : 'Tenant Admin';
-  const email = state.tenant ? state.tenant.email : '';
-  
-  userArea.innerHTML = `
-    <div class="tenant-pill">
-      <span class="tenant-dot"></span>
-      <span><strong>${escapeHtml(name)}</strong> <small style="color: var(--text-muted);">(${escapeHtml(email)})</small></span>
-    </div>
-    <button class="btn btn-secondary btn-sm" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
-  `;
+  renderUserProfile();
 
   loadTenantProfile();
   loadDashboardData();
   initWebSocket();
+}
+
+function renderUserProfile() {
+  const userArea = document.getElementById('userProfileArea');
+  if (!userArea) return;
+  
+  const name = state.tenant ? state.tenant.name : 'Tenant Admin';
+  const email = state.tenant ? state.tenant.email : 'admin@organization.com';
+  
+  userArea.innerHTML = `
+    <div class="profile-menu-container">
+      <button class="profile-icon-btn" id="profileIconBtn" onclick="toggleProfileMenu(event)" title="Account Profile" aria-label="Account Profile">
+        <i class="fa-solid fa-circle-user"></i>
+      </button>
+      <div class="profile-dropdown-window" id="profileDropdownWindow">
+        <div class="profile-window-header">
+          <div class="profile-avatar-large">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div class="profile-details">
+            <div class="profile-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+            <div class="profile-email" title="${escapeHtml(email)}">${escapeHtml(email)}</div>
+          </div>
+        </div>
+        <div class="profile-window-divider"></div>
+        <button class="profile-logout-btn" onclick="handleLogout()">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function toggleProfileMenu(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById('profileDropdownWindow');
+  if (dropdown) {
+    dropdown.classList.toggle('show');
+  }
 }
 
 function switchAuthTab(type) {
@@ -218,6 +266,11 @@ function switchTab(tabId) {
 async function loadTenantProfile() {
   try {
     const data = await apiFetch('/api/tenant/me');
+    if (data && data.tenant) {
+      state.tenant = data.tenant;
+      localStorage.setItem('tenantData', JSON.stringify(data.tenant));
+      renderUserProfile();
+    }
     if (data && data.ingestionUrl) {
       let url = data.ingestionUrl
         .replace(/localhost(:\d+)?/g, 'hikvision-events.duckdns.org')
