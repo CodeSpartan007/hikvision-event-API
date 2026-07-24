@@ -10,7 +10,10 @@ let state = {
   events: [],
   eventsMap: new Map(),
   apiKeys: [],
-  webhooks: []
+  webhooks: [],
+  hydrationReqId: 0,
+  isHydratingTelemetry: false,
+  bufferedTelemetryEvents: []
 };
 
 // Initialize Application
@@ -1417,6 +1420,10 @@ async function hydrateTelemetryStream() {
     });
   }
 
+  const currentReqId = ++state.hydrationReqId;
+  state.isHydratingTelemetry = true;
+  state.bufferedTelemetryEvents = [];
+
   const filter = filterSelect?.value || 'ALL';
   let url = '/api/events?limit=20';
   if (filter !== 'ALL') {
@@ -1425,24 +1432,53 @@ async function hydrateTelemetryStream() {
 
   try {
     const res = await apiFetch(url);
+    if (currentReqId !== state.hydrationReqId) return;
+
     if (res && res.data) {
       container.innerHTML = '';
-      if (res.data.length === 0) {
+      const historicalEvents = [...res.data].reverse();
+      const bufferedEvents = [...state.bufferedTelemetryEvents];
+
+      const seenIds = new Set();
+      const combined = [];
+
+      historicalEvents.forEach(e => {
+        const eventId = String(e.id || `evt_${e.timestamp}_${e.eventType}`);
+        seenIds.add(eventId);
+        combined.push({ event: e, isHydration: true });
+      });
+
+      bufferedEvents.forEach(e => {
+        if (filter !== 'ALL' && e.eventType !== filter) return;
+        const eventId = String(e.id || `evt_${e.timestamp}_${e.eventType}`);
+        if (!seenIds.has(eventId)) {
+          seenIds.add(eventId);
+          combined.push({ event: e, isHydration: false });
+        }
+      });
+
+      if (combined.length === 0) {
         container.innerHTML = `
           <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
             <i class="fa-solid fa-satellite-dish" style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--border-color);"></i>
             <p>No historical events match filter. Listening for real-time telemetry...</p>
           </div>
         `;
-        return;
+      } else {
+        combined.forEach(item => {
+          appendTelemetryItem(item.event, item.isHydration);
+        });
       }
-      const recentEvents = [...res.data].reverse();
-      recentEvents.forEach(e => {
-        appendTelemetryItem(e, true);
-      });
     }
   } catch (err) {
-    console.error('Failed to hydrate real-time telemetry stream:', err);
+    if (currentReqId === state.hydrationReqId) {
+      console.error('Failed to hydrate real-time telemetry stream:', err);
+    }
+  } finally {
+    if (currentReqId === state.hydrationReqId) {
+      state.isHydratingTelemetry = false;
+      state.bufferedTelemetryEvents = [];
+    }
   }
 }
 
@@ -1480,7 +1516,10 @@ function initWebSocket() {
 
     state.eventCount++;
     document.getElementById('eventCounterTag').textContent = `${state.eventCount} Events Streamed`;
-    
+
+    if (state.isHydratingTelemetry) {
+      state.bufferedTelemetryEvents.push(event);
+    }
     appendTelemetryItem(event);
     loadDashboardData(); // Update overview metrics
   });
@@ -1581,14 +1620,20 @@ function viewEventJson(eventInput) {
   openModal('jsonInspectorModal');
 }
 
-function copyJsonInspectorContent() {
+async function copyJsonInspectorContent() {
   const content = document.getElementById('jsonViewerContent')?.textContent;
-  if (content && content !== 'Loading...') {
-    navigator.clipboard.writeText(content).then(() => {
-      showToast('Raw JSON copied to clipboard!', 'success');
-    }).catch(err => {
-      showToast('Failed to copy JSON: ' + (err.message || err), 'error');
-    });
+  if (!content || content === 'Loading...') return;
+
+  if (!navigator.clipboard?.writeText) {
+    showToast('Clipboard API unavailable in this browser context', 'error');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(content);
+    showToast('Raw JSON copied to clipboard!', 'success');
+  } catch (err) {
+    showToast('Failed to copy JSON: ' + (err.message || err), 'error');
   }
 }
 
