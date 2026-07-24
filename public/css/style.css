@@ -25,7 +25,7 @@
   --danger-bg: rgba(239, 68, 68, 0.15);
   
   --glass-backdrop: blur(16px);
-  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* 🌚 Dark Mode Theme (Default) */
@@ -39,6 +39,7 @@
   --nav-tabs-bg: rgba(18, 42, 74, 0.85);
   
   --border-color: #1A3D63;
+  --border-subtle: rgba(255, 255, 255, 0.08);
   --border-focus: #4A7FA7;
   
   --text-main: #F6FAFD;
@@ -62,8 +63,10 @@
   --code-text: #B3CFE5;
   
   --shadow-glow: 0 0 25px rgba(74, 127, 167, 0.25);
+  --shadow-card: 0 10px 30px -10px rgba(10, 25, 49, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
   --hero-bg: linear-gradient(135deg, rgba(74, 127, 167, 0.18) 0%, rgba(26, 61, 99, 0.3) 100%);
   --step-bg: rgba(10, 25, 49, 0.6);
+  --ambient-glow: radial-gradient(circle, rgba(74, 127, 167, 0.14) 0%, rgba(0, 0, 0, 0) 70%);
 }
 
 /* 🌞 Light Mode Theme */
@@ -77,6 +80,7 @@
   --nav-tabs-bg: rgba(234, 242, 250, 0.85);
   
   --border-color: #B3CFE5;
+  --border-subtle: rgba(10, 25, 49, 0.08);
   --border-focus: #1A3D63;
   
   --text-main: #0A1931;
@@ -100,14 +104,22 @@
   --code-text: #F6FAFD;
   
   --shadow-glow: 0 0 25px rgba(26, 61, 99, 0.15);
+  --shadow-card: 0 10px 30px -10px rgba(74, 127, 167, 0.15), 0 0 0 1px rgba(10, 25, 49, 0.04);
   --hero-bg: linear-gradient(135deg, rgba(234, 242, 250, 0.9) 0%, rgba(179, 207, 229, 0.35) 100%);
   --step-bg: rgba(255, 255, 255, 0.8);
+  --ambient-glow: radial-gradient(circle, rgba(74, 127, 167, 0.09) 0%, rgba(0, 0, 0, 0) 70%);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
 }
 
 body {
@@ -119,7 +131,25 @@ body {
   flex-direction: column;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px;
+  left: 25%;
+  width: 650px;
+  height: 650px;
+  background: var(--ambient-glow);
+  pointer-events: none;
+  z-index: -1;
+}
+
+h1, h2, h3, .brand-title, .card-title {
+  letter-spacing: -0.025em;
 }
 
 /* Header & Top Navigation */
@@ -434,12 +464,16 @@ body {
 .card {
   background: var(--bg-card);
   backdrop-filter: var(--glass-backdrop);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.card:hover {
+  border-color: var(--border-color);
 }
 
 .card-header {
@@ -477,8 +511,13 @@ body {
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: var(--transition);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   text-decoration: none;
+  user-select: none;
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-primary {
@@ -490,17 +529,20 @@ body {
 .btn-primary:hover {
   background: var(--btn-primary-hover);
   color: var(--btn-primary-text);
-  transform: translateY(-1px);
+  transform: translateY(-1.5px);
+  box-shadow: 0 6px 18px rgba(26, 61, 99, 0.35);
 }
 
 .btn-secondary {
   background: var(--btn-secondary-bg);
-  border-color: var(--border-color);
+  border-color: var(--border-subtle);
   color: var(--btn-secondary-text);
 }
 
 .btn-secondary:hover {
   background: var(--btn-secondary-hover);
+  border-color: var(--border-color);
+  transform: translateY(-1px);
 }
 
 .btn-danger {
@@ -512,6 +554,7 @@ body {
 .btn-danger:hover {
   background: rgba(239, 68, 68, 0.3);
   color: #fff;
+  transform: translateY(-1px);
 }
 
 .btn-sm {
@@ -543,13 +586,33 @@ body {
 
 .stat-card {
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 1.25rem;
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, background-color 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-color);
+}
+
+/* Pure CSS Skeleton Shimmer Utilities */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+  display: inline-block;
 }
 
 .stat-icon {
