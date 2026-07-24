@@ -216,6 +216,29 @@ function clearFormErrors(formElement) {
   });
 }
 
+function clearAuthForms() {
+  const forms = ['loginForm', 'registerForm', 'forgotForm', 'resetForm'];
+  forms.forEach(id => {
+    const form = document.getElementById(id);
+    if (form) {
+      form.reset();
+      clearFormErrors(form);
+
+      form.querySelectorAll('.input-password-wrapper input').forEach(input => {
+        input.type = 'password';
+      });
+      form.querySelectorAll('.password-toggle-btn i').forEach(icon => {
+        icon.className = 'fa-solid fa-eye';
+      });
+    }
+  });
+
+  checkPasswordStrength('', 'reg');
+  checkPasswordStrength('', 'reset');
+  const badge = document.getElementById('resetMatchBadge');
+  if (badge) badge.innerHTML = '';
+}
+
 function togglePasswordVisibility(inputId, btn) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -413,6 +436,7 @@ function initLiveValidation() {
 
 // Auth UI Switches
 function showAuthView() {
+  clearAuthForms();
   document.getElementById('authView').style.display = 'block';
   document.getElementById('portalView').style.display = 'none';
   document.getElementById('userProfileArea').innerHTML = '';
@@ -529,6 +553,7 @@ async function handleDeleteAccount(e) {
 
 function showAuthSubView(subView, event, token) {
   if (event) event.preventDefault();
+  clearAuthForms();
 
   const loginForm = document.getElementById('loginForm');
   const regForm = document.getElementById('registerForm');
@@ -536,10 +561,10 @@ function showAuthSubView(subView, event, token) {
   const resetForm = document.getElementById('resetForm');
   const authTabsHeader = document.getElementById('authTabsHeader');
 
-  if (loginForm) { loginForm.style.display = 'none'; clearFormErrors(loginForm); }
-  if (regForm) { regForm.style.display = 'none'; clearFormErrors(regForm); }
-  if (forgotForm) { forgotForm.style.display = 'none'; clearFormErrors(forgotForm); }
-  if (resetForm) { resetForm.style.display = 'none'; clearFormErrors(resetForm); }
+  if (loginForm) loginForm.style.display = 'none';
+  if (regForm) regForm.style.display = 'none';
+  if (forgotForm) forgotForm.style.display = 'none';
+  if (resetForm) resetForm.style.display = 'none';
 
   if (subView === 'forgot') {
     if (authTabsHeader) authTabsHeader.style.display = 'none';
@@ -556,6 +581,8 @@ function showAuthSubView(subView, event, token) {
 
 function switchAuthTab(type, event) {
   if (event) event.preventDefault();
+  clearAuthForms();
+
   const loginTab = document.getElementById('tabSelectLogin');
   const regTab = document.getElementById('tabSelectRegister');
   const loginForm = document.getElementById('loginForm');
@@ -565,19 +592,19 @@ function switchAuthTab(type, event) {
   const authTabsHeader = document.getElementById('authTabsHeader');
 
   if (authTabsHeader) authTabsHeader.style.display = 'flex';
-  if (forgotForm) { forgotForm.style.display = 'none'; clearFormErrors(forgotForm); }
-  if (resetForm) { resetForm.style.display = 'none'; clearFormErrors(resetForm); }
+  if (forgotForm) forgotForm.style.display = 'none';
+  if (resetForm) resetForm.style.display = 'none';
 
   if (type === 'login') {
     if (loginTab) loginTab.classList.add('active');
     if (regTab) regTab.classList.remove('active');
-    if (loginForm) { loginForm.style.display = 'block'; clearFormErrors(loginForm); }
-    if (regForm) { regForm.style.display = 'none'; clearFormErrors(regForm); }
+    if (loginForm) loginForm.style.display = 'block';
+    if (regForm) regForm.style.display = 'none';
   } else {
     if (regTab) regTab.classList.add('active');
     if (loginTab) loginTab.classList.remove('active');
-    if (regForm) { regForm.style.display = 'block'; clearFormErrors(regForm); }
-    if (loginForm) { loginForm.style.display = 'none'; clearFormErrors(loginForm); }
+    if (regForm) regForm.style.display = 'block';
+    if (loginForm) loginForm.style.display = 'none';
   }
 }
 
@@ -718,6 +745,7 @@ async function handleLogin(e) {
       state.tenant = data.tenant;
       localStorage.setItem('tenantToken', data.token);
       localStorage.setItem('tenantData', JSON.stringify(data.tenant));
+      clearAuthForms();
       showToast('Logged in successfully!', 'success');
       showPortalView();
     }
@@ -780,6 +808,7 @@ async function handleRegister(e) {
       state.tenant = data.tenant;
       localStorage.setItem('tenantToken', data.token);
       localStorage.setItem('tenantData', JSON.stringify(data.tenant));
+      clearAuthForms();
       showToast('Tenant account created successfully!', 'success');
       showPortalView();
     }
@@ -801,6 +830,7 @@ function handleLogout() {
     state.socket.disconnect();
     state.socket = null;
   }
+  clearAuthForms();
   showAuthView();
 }
 
@@ -879,7 +909,7 @@ async function loadDashboardData() {
     }
 
     if (eventsData && eventsData.data) {
-      document.getElementById('statTotalEvents').textContent = eventsData.total || eventsData.data.length;
+      document.getElementById('statTotalEvents').textContent = eventsData.pagination?.total ?? eventsData.total ?? eventsData.data.length;
       renderOverviewEventsTable(eventsData.data);
     }
   } catch (err) {
