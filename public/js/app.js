@@ -446,10 +446,32 @@ function showPortalView() {
   document.getElementById('authView').style.display = 'none';
   document.getElementById('portalView').style.display = 'flex';
   
+  // Clear any residual telemetry state from previous sessions
+  state.eventsMap.clear();
+  state.events = [];
+  state.devices = [];
+  state.apiKeys = [];
+  state.webhooks = [];
+  state.eventCount = 0;
+
+  const eventCounterTag = document.getElementById('eventCounterTag');
+  if (eventCounterTag) eventCounterTag.textContent = '0 Events Streamed';
+
+  const telemetryList = document.getElementById('telemetryStreamList');
+  if (telemetryList) {
+    telemetryList.innerHTML = `
+      <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+        <i class="fa-solid fa-satellite-dish" style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--border-color);"></i>
+        <p>Listening for real-time Hikvision event telemetry...</p>
+      </div>
+    `;
+  }
+
   renderUserProfile();
 
   loadTenantProfile();
   loadDashboardData();
+  hydrateTelemetryStream();
   initWebSocket();
 }
 
@@ -824,14 +846,24 @@ async function handleRegister(e) {
 function handleLogout() {
   state.token = null;
   state.tenant = null;
+  state.eventsMap.clear();
+  state.events = [];
+  state.devices = [];
+  state.apiKeys = [];
+  state.webhooks = [];
+  state.eventCount = 0;
+
   localStorage.removeItem('tenantToken');
   localStorage.removeItem('tenantData');
+
   if (state.socket) {
     state.socket.disconnect();
     state.socket = null;
   }
+
   clearAuthForms();
-  showAuthView();
+  // Initiate page reload to ensure 100% clean environment for subsequent logins
+  window.location.href = window.location.origin + window.location.pathname;
 }
 
 // Tab Navigation
@@ -1373,6 +1405,47 @@ async function handleDeleteWebhook(id) {
 }
 
 // Socket.IO Real-Time Telemetry Connection
+async function hydrateTelemetryStream() {
+  const container = document.getElementById('telemetryStreamList');
+  if (!container) return;
+
+  const filterSelect = document.getElementById('eventTypeFilter');
+  if (filterSelect && !filterSelect.dataset.listenerAttached) {
+    filterSelect.dataset.listenerAttached = 'true';
+    filterSelect.addEventListener('change', () => {
+      hydrateTelemetryStream();
+    });
+  }
+
+  const filter = filterSelect?.value || 'ALL';
+  let url = '/api/events?limit=20';
+  if (filter !== 'ALL') {
+    url += `&eventType=${encodeURIComponent(filter)}`;
+  }
+
+  try {
+    const res = await apiFetch(url);
+    if (res && res.data) {
+      container.innerHTML = '';
+      if (res.data.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+            <i class="fa-solid fa-satellite-dish" style="font-size: 2.5rem; margin-bottom: 1rem; color: var(--border-color);"></i>
+            <p>No historical events match filter. Listening for real-time telemetry...</p>
+          </div>
+        `;
+        return;
+      }
+      const recentEvents = [...res.data].reverse();
+      recentEvents.forEach(e => {
+        appendTelemetryItem(e, true);
+      });
+    }
+  } catch (err) {
+    console.error('Failed to hydrate real-time telemetry stream:', err);
+  }
+}
+
 function initWebSocket() {
   if (state.socket) state.socket.disconnect();
 
@@ -1383,13 +1456,22 @@ function initWebSocket() {
   state.socket = socket;
 
   socket.on('connect', () => {
-    document.getElementById('socketDot').className = 'status-dot-pulse';
+    const dot = document.getElementById('socketDot');
+    if (dot) {
+      dot.className = 'status-dot-pulse';
+      dot.style.background = 'var(--success)';
+      dot.style.boxShadow = '0 0 8px var(--success)';
+    }
     document.getElementById('socketText').textContent = 'Connected to Real-Time Room';
   });
 
   socket.on('disconnect', () => {
-    document.getElementById('socketDot').className = 'status-dot-pulse';
-    document.getElementById('socketDot').style.background = 'var(--danger)';
+    const dot = document.getElementById('socketDot');
+    if (dot) {
+      dot.className = 'status-dot-pulse';
+      dot.style.background = 'var(--danger)';
+      dot.style.boxShadow = '0 0 8px var(--danger)';
+    }
     document.getElementById('socketText').textContent = 'Disconnected';
   });
 
@@ -1408,8 +1490,9 @@ function initWebSocket() {
   });
 }
 
-function appendTelemetryItem(event) {
+function appendTelemetryItem(event, isHydration = false) {
   const container = document.getElementById('telemetryStreamList');
+  if (!container) return;
   const filter = document.getElementById('eventTypeFilter')?.value || 'ALL';
 
   if (filter !== 'ALL' && event.eventType !== filter) return;
@@ -1418,7 +1501,7 @@ function appendTelemetryItem(event) {
   state.eventsMap.set(eventId, event);
 
   // Clear placeholder if present
-  if (container.children.length === 1 && container.children[0].innerText.includes('Listening')) {
+  if (container.children.length === 1 && (container.children[0].innerText.includes('Listening') || container.children[0].innerText.includes('cleared') || container.children[0].innerText.includes('No historical'))) {
     container.innerHTML = '';
   }
 
@@ -1431,11 +1514,15 @@ function appendTelemetryItem(event) {
   if (event.eventType === 'DOOR_OPEN') icon = 'fa-door-open';
   if (event.eventType === 'DOOR_FORCED') icon = 'fa-triangle-exclamation';
 
+  const historyBadge = isHydration
+    ? `<span style="font-weight: normal; opacity: 0.65; font-size: 0.75rem; margin-left: 0.5rem; background: var(--bg-card); padding: 0.1rem 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);"><i class="fa-solid fa-clock-rotate-left"></i> History</span>`
+    : '';
+
   div.innerHTML = `
     <div class="stream-main">
       <div class="stream-icon"><i class="fa-solid ${icon}"></i></div>
       <div class="stream-details">
-        <h4>${escapeHtml(event.eventType)} - ${escapeHtml(event.employeeName || event.employeeId || 'Terminal Event')}</h4>
+        <h4>${escapeHtml(event.eventType)} - ${escapeHtml(event.employeeName || event.employeeId || 'Terminal Event')} ${historyBadge}</h4>
         <div class="stream-meta">
           <span><i class="fa-solid fa-microchip"></i> ${escapeHtml(event.deviceId)}</span>
           <span><i class="fa-regular fa-clock"></i> ${new Date(event.timestamp).toLocaleTimeString()}</span>
@@ -1492,6 +1579,17 @@ function viewEventJson(eventInput) {
   }
   document.getElementById('jsonViewerContent').textContent = JSON.stringify(eventObj, null, 2);
   openModal('jsonInspectorModal');
+}
+
+function copyJsonInspectorContent() {
+  const content = document.getElementById('jsonViewerContent')?.textContent;
+  if (content && content !== 'Loading...') {
+    navigator.clipboard.writeText(content).then(() => {
+      showToast('Raw JSON copied to clipboard!', 'success');
+    }).catch(err => {
+      showToast('Failed to copy JSON: ' + (err.message || err), 'error');
+    });
+  }
 }
 
 // Modal Helpers

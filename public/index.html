@@ -630,13 +630,16 @@
 
   <!-- Modal: Event Raw JSON Inspector -->
   <div id="jsonInspectorModal" class="modal-backdrop">
-    <div class="modal" style="max-width: 700px;">
+    <div class="modal" style="max-width: 780px;">
       <div class="modal-header">
         <h3 class="modal-title"><i class="fa-solid fa-code"></i> Telemetry Raw Event Payload</h3>
         <button class="modal-close" onclick="closeModal('jsonInspectorModal')">&times;</button>
       </div>
-      <pre id="jsonViewerContent">Loading...</pre>
-      <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+      <div style="flex: 1; min-height: 0; overflow: auto; margin-bottom: 1rem; border-radius: var(--radius-md); background: var(--code-bg); border: 1px solid var(--border-color); padding: 0.85rem;">
+        <pre id="jsonViewerContent" style="margin: 0; padding: 0; border: none; background: transparent; white-space: pre-wrap; word-break: break-all; font-size: 0.85rem; font-family: var(--font-mono); color: var(--code-text);">Loading...</pre>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+        <button class="btn btn-secondary btn-sm" onclick="copyJsonInspectorContent()"><i class="fa-solid fa-copy"></i> Copy Raw JSON</button>
         <button class="btn btn-secondary" onclick="closeModal('jsonInspectorModal')">Close</button>
       </div>
     </div>
